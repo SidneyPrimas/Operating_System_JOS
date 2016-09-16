@@ -193,7 +193,7 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 		return -1;
 	}
 	
-	info->eip_line = stabs[lline];
+	info->eip_line = stabs[lline].n_desc;
 	
 
 

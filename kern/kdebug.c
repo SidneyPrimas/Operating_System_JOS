@@ -181,13 +181,9 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 	//	Look at the STABS documentation and <inc/stab.h> to find
 	//	which one.
 	// Your code here.
-	
-	//cprintf("Left: %d, Right: %d \n", lline, rline);
-	
+
 
 	stab_binsearch(stabs, &lline, &rline, N_SLINE, addr);
-	
-	//cprintf("Left: %d, Right: %d \n", lline, rline);
 	
 	if (lline > rline) {
 		return -1;
