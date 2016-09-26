@@ -97,7 +97,7 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 		// Determine the offset of eip from the first method instruction. 
 		int offset = (uint32_t) eip_p- info.eip_fn_addr; 
 			
-		cprintf("\t %s:%d: %.*s+%d \n", info.eip_file, info.eip_line, info.eip_fn_namelen, info.eip_fn_name, offset);
+		cprintf("\t %s:%d: %.*s+%d5 \n", info.eip_file, info.eip_line, info.eip_fn_namelen, info.eip_fn_name, offset);
 			
 		
 		// Update current stack pointer, and repeat for the next stack frame. 
