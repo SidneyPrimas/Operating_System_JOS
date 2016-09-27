@@ -171,7 +171,10 @@ mem_init(void)
 
 	//////////////////////////////////////////////////////////////////////
 	// create initial page directory.
+	// kern_pgdir is placed directly above the end pointer. 
+	// kern_pgdir is a virtual address pointer. 
 	kern_pgdir = (pde_t *) boot_alloc(PGSIZE);
+	// The kernel pgdir consists of a single page, which is zeroed here. 
 	memset(kern_pgdir, 0, PGSIZE);
 
 	//////////////////////////////////////////////////////////////////////
@@ -181,6 +184,8 @@ mem_init(void)
 	// following line.)
 
 	// Permissions: kernel R, user R
+	// Inserts the physical address of kern_pgdir (with correct configure bits) into the kern_pgdir array at the PDX (page direcotry) of User Virtual Page Table (UVPT). 
+	// Essentially, we are adding a pointer to the kernel pgdir physical address within kern_pgdir. 
 	kern_pgdir[PDX(UVPT)] = PADDR(kern_pgdir) | PTE_U | PTE_P;
 
 	//////////////////////////////////////////////////////////////////////
@@ -190,7 +195,12 @@ mem_init(void)
 	// array.  'npages' is the number of physical pages in memory.  Use memset
 	// to initialize all fields of each struct PageInfo to 0.
 	// Your code goes here:
-
+	
+	// Allocate an array PageInfo structs, and update pages with array pointer. 
+	struct PageInfo allocated_pages[npages];
+	pages = allocated_pages;
+	// Initializes all data (and thus all structures) in pages to 0. 
+	memset(pages, 0, npages*sizeof(struct PageInfo));
 
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
