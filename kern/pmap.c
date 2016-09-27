@@ -46,7 +46,7 @@ i386_detect_memory(void)
 		totalmem = 16 * 1024 + ext16mem;
 	else if (extmem)
 		totalmem = 1 * 1024 + extmem;
-	else
+	else 
 		totalmem = basemem;
 
 	npages = totalmem / (PGSIZE / 1024);
@@ -83,7 +83,7 @@ static void check_page_installed_pgdir(void);
 // before the page_free_list list has been set up.
 static void *
 boot_alloc(uint32_t n)
-{
+{	
 	static char *nextfree;	// virtual address of next byte of free memory
 	char *result;
 
@@ -92,8 +92,12 @@ boot_alloc(uint32_t n)
 	// which points to the end of the kernel's bss segment:
 	// the first virtual address that the linker did *not* assign
 	// to any kernel code or global variables.
+	// BSS includes all uninitialized objects declared at file scope and uninitialized static local variables. 
 	if (!nextfree) {
+		// End is an array starting at the last address the kernel knows about (including all uninitialized objects). 
+		// End is a virtual address in kernel space. 
 		extern char end[];
+		// Rounds-up to the nearest multiple of PGSize. 
 		nextfree = ROUNDUP((char *) end, PGSIZE);
 	}
 
@@ -101,9 +105,44 @@ boot_alloc(uint32_t n)
 	// nextfree.  Make sure nextfree is kept aligned
 	// to a multiple of PGSIZE.
 	//
-	// LAB 2: Your code here.
+	// Add Code Here
+	
+	// If we're out of memory, boot_alloc should panic.
+	// This function may ONLY be used during initialization,
+	// before the page_free_list list has been set up.
+	// (npages * PGSIZE) -1: Largest valid address is one below total size of the  physical memory-space (since address starts at 0).
+	physaddr_t max_pa = (physaddr_t) (npages * PGSIZE - 1);
+	// Since nextfree is in the virtual address space, we need to convert max_pa into the va-space. 
+	uintptr_t max_va = (uintptr_t) KADDR(max_pa);
+	uintptr_t updated_nextfree = (uintptr_t) (nextfree + n);
+	if ( updated_nextfree > max_pa ) {
+		panic("boot_alloc: No more memory during initialization.\n");
+	}
+	
+	// If n>0, allocates enough pages of contiguous physical memory to hold 'n'
+	// bytes.  Doesn't initialize the memory.  Returns a kernel virtual address.
+	if (n > 0) {
+		//ToDo: Allocate chunk large enough to hold 'n' bytes. 
 
-	return NULL;
+		// Update nextfree (making sure that nextfree is ketp aligned with a multiple of page size.
+		// nextfree+n: Since nextfree is apointer to char, we are moving the forward by singel byte intervals. 
+		// ROUNDUP: Command allows us to round to the beginning of the next PAGE. 
+		nextfree = ROUNDUP(nextfree + n, PGSIZE);
+		
+		// Returns a kernel virtual address. 
+		// Nextfree is a pointer to a virtual address. 
+		return nextfree;
+	}
+	
+	
+	// If n==0, returns the address of the next free page without allocating anything.
+	if (n == 0) {
+		return nextfree;
+	}
+	
+	assert("boot_alloc: Reaching final return statement should not be possible\n");
+	return (void *);
+	
 }
 
 // Set up a two-level page table:
@@ -125,7 +164,8 @@ mem_init(void)
 	i386_detect_memory();
 
 	// Remove this line when you're ready to test this function.
-	panic("mem_init: This function is not finished\n");
+
+	warn("mem_init: This function is not finished\n");
 
 	//////////////////////////////////////////////////////////////////////
 	// create initial page directory.
