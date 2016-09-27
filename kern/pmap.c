@@ -115,7 +115,9 @@ boot_alloc(uint32_t n)
 	// Since nextfree is in the virtual address space, we need to convert max_pa into the va-space. 
 	uintptr_t max_va = (uintptr_t) KADDR(max_pa);
 	uintptr_t updated_nextfree = (uintptr_t) (nextfree + n);
-	if ( updated_nextfree > max_pa ) {
+	
+	if ( updated_nextfree > max_va ) {
+		 cprintf("Max_va: %x \nNextfree: %x \n", max_va, updated_nextfree);	
 		panic("boot_alloc: No more memory during initialization.\n");
 	}
 	
@@ -141,7 +143,7 @@ boot_alloc(uint32_t n)
 	}
 	
 	assert("boot_alloc: Reaching final return statement should not be possible\n");
-	return (void *);
+	return NULL;
 	
 }
 
