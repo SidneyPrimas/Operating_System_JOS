@@ -1,1 +1,2 @@
-Answers: 
+Question 1: 
+myster_t will by of type uintptr_t. Essentially, value is a pointer to a virtual address. After boot.S switches from real mode into protected mode, all memory references in C are intepreted as virtual addresses. Thus, the return_a_pointer() function will return a virtual address. We assign the value at the virtual address to be 10. And then, we cast the virtual address pointer value into it's the virtual address integer representation (which can be useful for manipulation, etc). This virtual address integer representation is defined as uintprt_t type. 

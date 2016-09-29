@@ -142,7 +142,7 @@ boot_alloc(uint32_t n)
 		return nextfree;
 	}
 	
-	assert("boot_alloc: Reaching final return statement should not be possible\n");
+	assert(true);
 	return NULL;
 	
 }
@@ -187,7 +187,7 @@ mem_init(void)
 	// Inserts the physical address of kern_pgdir (with correct configure bits) into the kern_pgdir array at the PDX (page direcotry) of User Virtual Page Table (UVPT). 
 	// Essentially, we are adding a pointer to the kernel pgdir physical address within kern_pgdir. 
 	kern_pgdir[PDX(UVPT)] = PADDR(kern_pgdir) | PTE_U | PTE_P;
-
+	
 	//////////////////////////////////////////////////////////////////////
 	// Allocate an array of npages 'struct PageInfo's and store it in 'pages'.
 	// The kernel uses this array to keep track of physical pages: for
@@ -197,8 +197,10 @@ mem_init(void)
 	// Your code goes here:
 	
 	// Allocate an array PageInfo structs, and update pages with array pointer. 
-	struct PageInfo allocated_pages[npages];
-	pages = allocated_pages;
+	// boot_alloc(0) returns a virtual kernel pointer to the current nextfree. We use this to setup the first address of our pages array. 
+	pages = (struct PageInfo *) boot_alloc(0);
+	// Then, we allocate sufficient memory to store the pages array. 	
+	boot_alloc(npages*sizeof(struct PageInfo));
 	// Initializes all data (and thus all structures) in pages to 0. 
 	memset(pages, 0, npages*sizeof(struct PageInfo));
 
@@ -212,6 +214,9 @@ mem_init(void)
 
 	check_page_free_list(1);
 	check_page_alloc();
+	
+	return;
+	
 	check_page();
 
 	//////////////////////////////////////////////////////////////////////
@@ -303,12 +308,57 @@ page_init(void)
 	// Change the code to reflect this.
 	// NB: DO NOT actually touch the physical memory corresponding to
 	// free pages!
+	
+	// boot_alloc(0) returns the pointer to the first free virtual kernel memory. We cast this to a integer. 
+	// We do not skip the page that includes first_free_va. 
+	 physaddr_t first_free_va = (physaddr_t) PADDR(boot_alloc(0));
+
+	// Debug
+	cprintf("Number of pages %d. \n", npages);
+	cprintf("Page at Kernel Page Directory: %d \n", PADDR(kern_pgdir)/PGSIZE);
+	cprintf("Page at start of Kernel: %d \n", EXTPHYSMEM/PGSIZE); 
+	cprintf("Page at end of kernel + bss + pages: %d \n", first_free_va/PGSIZE - 1);
+	
+	
+	// Initialize all npages into a linked list (with all being free for use). 
 	size_t i;
 	for (i = 0; i < npages; i++) {
+		
+		// Count of pointers to this page. Initialized to 0. 
 		pages[i].pp_ref = 0;
-		pages[i].pp_link = page_free_list;
-		page_free_list = &pages[i];
+		
+		// Based on information in 1-4, don't allocate certain PageInfo structs in free linked list. 
+		//1) Marke physical page 0 as in use.
+		if (i == 0) {
+			cprintf("Skipped Page 0 \n");
+			pages[i].pp_link = NULL;
+			continue;
+		}
+		// Don't allocate pages between [IOPHYSMEM, EXTPHYSMEM)
+		else if ( i >= (IOPHYSMEM/PGSIZE) && i < (EXTPHYSMEM/PGSIZE)) {
+			cprintf("Skipped I/O. i:%d \n", i);
+			pages[i].pp_link = NULL;
+			continue;
+		}  
+		// Skip pages allocated to kernel and other data structures in physical memory (including bss)
+		// In physical memory, the kernel begins at EXTPHYSMEM. 
+		// The kernel ranges first_free_va/PGSIZE, which is the first free page after the kernel + bss + pages array.  
+		else if ( (i >= EXTPHYSMEM/PGSIZE) && i < first_free_va/PGSIZE) {
+			cprintf("Skipped pages allocated to kernel + bss + pages array. i:%d \n", i);
+			pages[i].pp_link = NULL;
+			continue;
+		}
+		// Other then the exceptions above, include all PageInfo structs in linked list. . 
+		else {
+			// On first iteration, the link points to nothing or null (thus indicating that it's the end of the linked list). 
+			pages[i].pp_link = page_free_list;
+			// Saves the location in the PageInfo linked list of the free pages. 
+			page_free_list = &pages[i];
+		}
 	}
+	 
+	
+	
 }
 
 //
@@ -323,23 +373,59 @@ page_init(void)
 // Returns NULL if out of free memory.
 //
 // Hint: use page2kva and memset
+
+// page_free_list is a pointer to the first free page in the pages linked list. 
+// To allocate this page, we must 1) Mark as used by updating the pp_link of the returned page to null, 2) update page_free_list to the next page in the linked list (removes it from the list), and 3) return the removed paged from the linked list. 
 struct PageInfo *
 page_alloc(int alloc_flags)
-{
-	// Fill this function in
-	return 0;
+{	
+	//Return NULL if out of free memory. 
+	// When page_free_list is NULL, we have reached the end of the linked list. So, we are out of free memory. 
+	if (page_free_list == NULL) {
+		assert("Out of free memory.\n");
+		return NULL;
+	}
+	// Fill the entire returned physical page with '\0' bytes. 
+	// This is an optional convinience feature for the user. 
+	if(alloc_flags & ALLOC_ZERO) {
+		// memset operates on kernel virtual addresses. 
+		// clear the the physical page that page_free_list points to. 
+		memset(page2kva(page_free_list), 0, PGSIZE);
+	}
+	
+	// Save the free page to be returned. 
+	struct PageInfo * newPage = page_free_list;
+	// Update page_free_list to pop off newPage from the linked list.
+	page_free_list = (newPage->pp_link);
+	// Mark allocated page as note free.
+	newPage->pp_link = NULL;
+	//Return the allocated page.
+	return newPage;
 }
 
 //
 // Return a page to the free list.
 // (This function should only be called when pp->pp_ref reaches 0.)
-//
+// Set the PageInfo at pp to free by adding it to the linked list. 
 void
 page_free(struct PageInfo *pp)
-{
+{	
 	// Fill this function in
 	// Hint: You may want to panic if pp->pp_ref is nonzero or
 	// pp->pp_link is not NULL.
+	if (pp->pp_ref != 0) {
+		panic("page_free: pp->pp_ref is nonzero. \n");
+	}
+	
+	if (pp->pp_link != NULL) {
+		panic("page_fee: pp->pp_link is not NULL. \n");	
+	}
+	
+	// 1) Set pp->pp_link to the current page_free_list pointer. 
+	pp->pp_link = page_free_list;
+	// 2) Update page_free_list to point to the pp passed into this fuction.
+	page_free_list = pp;
+	
 }
 
 //
@@ -379,6 +465,14 @@ pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
 	// Fill this function in
+	
+	
+	// Page Table Entry exists
+	
+	// Page Table Entry doesn't exist
+	
+	
+	
 	return NULL;
 }
 
