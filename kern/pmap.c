@@ -174,7 +174,8 @@ mem_init(void)
 	// create initial page directory.
 	// kern_pgdir is placed directly above the end pointer. 
 	// kern_pgdir is a virtual address pointer. 
-	kern_pgdir = (pde_t *) boot_alloc(PGSIZE);
+	kern_pgdir = (pde_t *) boot_alloc(0);
+	boot_alloc(PGSIZE);
 	// The kernel pgdir consists of a single page, which is zeroed here. 
 	memset(kern_pgdir, 0, PGSIZE);
 
@@ -218,20 +219,29 @@ mem_init(void)
 	
 	check_page();
 	
-	return;
 	
 	//////////////////////////////////////////////////////////////////////
 	// Now we set up virtual memory
 
 	//////////////////////////////////////////////////////////////////////
+	// Overview: Map pages so that the user gets access to the pages array through UPAGES. 
 	// Map 'pages' read-only by the user at linear address UPAGES
 	// Permissions:
 	//    - the new image at UPAGES -- kernel R, user R
 	//      (ie. perm = PTE_U | PTE_P)
 	//    - pages itself -- kernel RW, user NONE
 	// Your code goes here:
+	// Note:  We map linear addresses for the pages array to physical address. We know the physical address of the pages array since we are in Kernel space and can use PADDR to directly map the linear to the physical address. 
+	boot_map_region(kern_pgdir, 
+		UPAGES, // Maps UPAGES to the physical page where pages is currently located. UPAGES maps to an already existing page, but now provides access to the user. 
+		ROUNDUP(npages*sizeof(struct PageInfo), PGSIZE), 
+		PADDR(pages) , // This mapping is possible since we are in Kernel space, and have a KERNBASE offset from the physical address. 
+		PTE_U | PTE_P);
+	
+	
 
 	//////////////////////////////////////////////////////////////////////
+	// Overview: Map the Kernel stack to physical memory. This will always be at the same location for every kernel in every process. This needs to be mapped seperately since it's below kernbase. 
 	// Use the physical memory that 'bootstack' refers to as the kernel
 	// stack.  The kernel stack grows down from virtual address KSTACKTOP.
 	// We consider the entire range from [KSTACKTOP-PTSIZE, KSTACKTOP)
@@ -242,7 +252,15 @@ mem_init(void)
 	//       overwrite memory.  Known as a "guard page".
 	//     Permissions: kernel RW, user NONE
 	// Your code goes here:
-
+	// We don't need to allocate the stack based on how the stack grows. 
+	// Allocate the stack based on the chunks
+	// We don't need to allocate the guard page. It's just left open for now. 
+	boot_map_region(kern_pgdir, 
+		KSTACKTOP-KSTKSIZE, //Check memlayout.h
+		KSTKSIZE, //Check memlayout.h
+		PADDR(bootstack) , // bootstack[] defined in pmap.h. 
+		PTE_W | PTE_P);
+		
 	//////////////////////////////////////////////////////////////////////
 	// Map all of physical memory at KERNBASE.
 	// Ie.  the VA range [KERNBASE, 2^32) should map to
@@ -251,10 +269,18 @@ mem_init(void)
 	// we just set up the mapping anyway.
 	// Permissions: kernel RW, user NONE
 	// Your code goes here:
+	
+	// Now, we map every virtual memory above KERNBASE to the physical memory starting at 0x0. In physical memory, we have the 1MB kernel starting at 0x0, and then data structures above that. 
+	// Remember, Size is in increments of pg_size and KERNBASE + SIZE should be at 2^32 (one above the highest possible memory. 
+	boot_map_region(kern_pgdir, 
+		KERNBASE, 
+		(0xFFFFFFFF) - KERNBASE + 0x1, // Be careful, we can only represent 32 bit integers. So, we we calculate the size of the virtual kernal space, take this into account. 
+		(physaddr_t) 0x0 , 
+		PTE_W | PTE_P);
 
 	// Check that the initial page directory has been set up correctly.
 	check_kern_pgdir();
-
+	
 	// Switch from the minimal entry page directory to the full kern_pgdir
 	// page table we just created.	Our instruction pointer should be
 	// somewhere between KERNBASE and KERNBASE+4MB right now, which is
@@ -475,7 +501,6 @@ page_decref(struct PageInfo* pp)
 pte_t *
 pgdir_walk(pde_t *pgdir, const void *va, int create)
 {	
-	cprintf("***** pgdir_walk\n");
 	// Fill this function in
 	// Cast the actual pointer to an int type. 
 	uintptr_t va_int = (uintptr_t) va;
@@ -526,7 +551,7 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 	// pages + page_number: Shifts the pages array pointer from the the base to the pointer to PageInfo for page "page_number" 
 	// page2kva(pointer to PageInfo): Returns the virtual address that points the the beginning of the page it refers to. 
 	pte_t * pte_start_p = (pte_t *) page2kva(pages + PGNUM(*dir_entry_p));
-	
+
 	//Return a pointer to the entry in the page table that holds the va mapping. 
 	return pte_start_p + PTX(va_int);
 }
@@ -542,18 +567,38 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 // mapped pages.
 //
 // Hint: the TA solution uses pgdir_walk
-// At the core, boot_map_region allows us to map a virtual address to a physical address that was created during the boot process. In this case, we know that the page has already been created, and we need to artificially link the virtual address to the physical address by update an entry in the page table. 
+// At the core, boot_map_region allows us to map a virtual address to a physical address that is created during the boot process. We use this in mem_init to setup the kernel virtual address space, and correctly map it. 
+// Note: During the initial mapping in boot_map, the mappings are static. Since the mappings are static, we map the va directly the the pa. We don't include any pages, which are used for dynamic allocation. If we used pages, we would have to use the pa of the page, and not the one provided by the function. 
+
 static void
 boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
 {
 	// Fill this function in
 	
-	// Determine the virtual address of the page table entry that the pointer va maps to. 
-	pte_t * pt_entry = pgdir_walk(pgdir, (void *) va, true ); 
+	// Ensure that size is a multiple of PGSIZE. 
+	assert((size%PGSIZE) == 0);
+	assert((va%PGSIZE) == 0);
+	assert((pa%PGSIZE) == 0);
 	
-	if (!pt_entry) {
-		panic("boot_map_region: We cannot allocated memory for a page directory. ");
+	// Map the entire address space by allocataing a page for each
+	size_t i;
+	for (i = 0; i < size/PGSIZE; i++) {
+		// Determine the entry in the page table that maps to the virtual address. 
+		// Create the page table if necessary. 
+		pte_t * pt_entry = pgdir_walk(pgdir, (void *) (va+i*PGSIZE), true ); 	
+		if (!pt_entry) {
+			panic("boot_map_region: Out of memory during initialization. \n");
+		}
+		
+		//If entry already exists in user table, panic. 
+		if (*pt_entry & PTE_P) {
+			panic("boot_map_region: During Virtual Memory Initialization, the page has already been mapped. \n");
+		}
+		// Since this memory mapping is performed during initalization, we know that there shouldn't be anything mapped to the entry. 
+		*pt_entry = PTE_ADDR(pa + i*PGSIZE) | perm | PTE_P; 
 	}
+	
+	cprintf("Completed mapping VA %x to PA %x using boot_mapp_region. \n", va, pa);
 	
 }
 
@@ -723,8 +768,8 @@ page_remove(pde_t *pgdir, void *va)
 	page_decref(page_p);
 
 	
-	// 5) The page entry corresponding to va should be set to 0. We can also use **pte_store = (pte_t) 0x0.
-	memset(pt_entry_p, 0, sizeof(pte_t));
+	// 5) The page entry corresponding to va should be set to 0.
+	*pt_entry_p = (pte_t) 0x0;
 	
 	// 6) Invalidate the TLB. At this point, we have removed a value from the page table. 
 	tlb_invalidate(pgdir, va);
@@ -929,6 +974,7 @@ check_kern_pgdir(void)
 			assert(pgdir[i] & PTE_P);
 			break;
 		default:
+			cprintf("pgdir[i]: %x, PDX(KERNBASE): %x, i: %x) \n", pgdir[i], PDX(KERNBASE), i);
 			if (i >= PDX(KERNBASE)) {
 				assert(pgdir[i] & PTE_P);
 				assert(pgdir[i] & PTE_W);

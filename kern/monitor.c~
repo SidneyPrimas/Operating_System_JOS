@@ -24,9 +24,19 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
+	{ "backtrace", "Displays the stacktrace", mon_backtrace},
+	{ "showmappings", "Hello World", showmappings}, 
 };
 
 /***** Implementations of basic kernel monitor commands *****/
+int 
+showmappings(int argc, char **argv, struct Trapframe *tf) {
+
+	char *output = argv[0];
+	cprintf("Ouput: %s \n", output);
+	return 0;
+}
+
 
 int
 mon_help(int argc, char **argv, struct Trapframe *tf)
@@ -97,7 +107,7 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 		// Determine the offset of eip from the first method instruction. 
 		int offset = (uint32_t) eip_p- info.eip_fn_addr; 
 			
-		cprintf("\t %s:%d: %.*s+%d5 \n", info.eip_file, info.eip_line, info.eip_fn_namelen, info.eip_fn_name, offset);
+		cprintf("\t %s:%d: %.*s+%d \n", info.eip_file, info.eip_line, info.eip_fn_namelen, info.eip_fn_name, offset);
 			
 		
 		// Update current stack pointer, and repeat for the next stack frame. 

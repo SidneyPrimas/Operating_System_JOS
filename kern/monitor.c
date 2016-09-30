@@ -24,9 +24,19 @@ struct Command {
 static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
+	{ "backtrace", "Displays the stacktrace", mon_backtrace},
+	{ "showmappings", "Hello World", showmappings}, 
 };
 
 /***** Implementations of basic kernel monitor commands *****/
+int 
+showmappings(int argc, char **argv, struct Trapframe *tf) {
+
+	char *output = argv[1];
+	cprintf("Ouput: %s \n", output);
+	return 0;
+}
+
 
 int
 mon_help(int argc, char **argv, struct Trapframe *tf)
