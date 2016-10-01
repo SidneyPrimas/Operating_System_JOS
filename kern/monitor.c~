@@ -6,10 +6,13 @@
 #include <inc/memlayout.h>
 #include <inc/assert.h>
 #include <inc/x86.h>
+#include <inc/types.h>
+
 
 #include <kern/console.h>
 #include <kern/monitor.h>
 #include <kern/kdebug.h>
+#include <kern/pmap.h>
 
 #define CMDBUF_SIZE	80	// enough for one VGA text line
 
@@ -25,18 +28,142 @@ static struct Command commands[] = {
 	{ "help", "Display this list of commands", mon_help },
 	{ "kerninfo", "Display information about the kernel", mon_kerninfo },
 	{ "backtrace", "Displays the stacktrace", mon_backtrace},
-	{ "showmappings", "Hello World", showmappings}, 
+	{ "showmappings", "Input a range of Virtual Address to get PTE mappings.", showmappings}, 
+	{ "permissions", "Sets the permissions of a PTE based on a provided VA.", set_pte_permissions}, 
+	{"dump_memory", "Outpus the memory from the two provided address ranges.", dump_memory}, 
 };
 
 /***** Implementations of basic kernel monitor commands *****/
-int 
-showmappings(int argc, char **argv, struct Trapframe *tf) {
 
-	char *output = argv[0];
-	cprintf("Ouput: %s \n", output);
-	return 0;
+// Dumps the contents of a range of memory. 
+// arg1: Initial Address
+// arg2: Number of Bytes
+int
+dump_memory(int argc, char **argv, struct Trapframe *tf) {
+	
+	// Check number of arguments
+	if (argc != 3) {
+		cprintf("Please only enter the upper/lowrer address bounds.\n");
+		return -1; 
+	}
+	
+	// Extract the arguments. 
+	char * arg1 = argv[1]; 
+	char * arg2 = argv[2];
+	
+	
+	// Make sure the arguments start with 0x. 
+	if (!('0' == *arg1 && 'x' == *(arg1+1))| !('0' == *arg2 && 'x' == *(arg2+1))) {
+		cprintf("Please enter arguments correctly. \n");
+		return -1; 
+	}
+
+	// Convert to int (assuming string is in hex format). 
+	char * start = (char *) atohex(arg1);
+	uint32_t total_bytes = (uint32_t) atohex(arg2);
+	
+	size_t count;
+	for (count = 0; count < total_bytes; count++) {
+		pte_t * pte = pgdir_walk(kern_pgdir,  &start[count], false);
+		if (!pte) {
+			cprintf("VADDR@0x%p: No Mapping Present at this address. \n", &start[count]);
+		} else {
+			cprintf("Address:%p \t\tMem: 0x%x\n", &start[count], (uint8_t)start[count]);
+		}
+	}
+
+	return 0; 
 }
 
+
+// Set the permission of any pte in current user space by providing a virtual address. 
+// Arg1: Virtual Address in hex
+// Arg2: Permissions in hex
+int
+set_pte_permissions(int argc, char **argv, struct Trapframe *tf) {
+	
+	// Check number of arguments
+	if (argc != 3) {
+		cprintf("Please only enter correct number of arguments.\n");
+		return -1; 
+	}
+	
+	// Extract the arguments. 
+	char * arg1 = argv[1]; 
+	char * arg2 = argv[2];
+	
+	
+	// Make sure the arguments start with 0x. 
+	if (!('0' == *arg1 && 'x' == *(arg1+1))| !('0' == *arg2 && 'x' == *(arg2+1))) {
+		cprintf("Please enter arguments correctly. \n");
+		return -1; 
+	}
+
+	// Convert to int (assuming string is in hex format). 
+	uintptr_t va = (uintptr_t) atohex(arg1);
+	uint32_t perm = (uint32_t) atohex(arg2);
+	
+	pte_t * pte = pgdir_walk(kern_pgdir,  (void *) va, false);
+
+	if (!pte) {
+		cprintf("No Mapping Present for VA 0x%x. \n", va);
+	} else {
+		cprintf("Previous PTE for VADDR@0x%x: %x \n", va, *pte);
+		*pte = PTE_ADDR(*pte) | PGOFF(perm);
+		cprintf("New PTE for VADDR@0x%x: %x \n", va, *pte);
+	}
+
+	return 0; 
+}
+
+
+
+// Arguments are uppwer and lower bounds of virtual address. We will show the physical mappings to these.
+int 
+showmappings(int argc, char **argv, struct Trapframe *tf) {
+	
+	// Check number of arguments
+	if (argc != 3) {
+		cprintf("Please only enter the upper/lowre virtual address bound as arguments.\n");
+		return -1; 
+	}
+	
+	// Extract the arguments. 
+	char * arg1 = argv[1]; 
+	char * arg2 = argv[2];
+	
+	// Make sure the arguments start with 0x. 
+	if (!('0' == *arg1 && 'x' == *(arg1+1))| !('0' == *arg2 && 'x' == *(arg2+1))) {
+		cprintf("Please enter arguments correctly. \n");
+		return -1; 
+	}
+
+
+	// Convert to int (assuming string is in hex format). 
+	uintptr_t lower_input = (uintptr_t) atohex(argv[1]);
+	uintptr_t upper_input = (uintptr_t) atohex(argv[2]); 
+
+	// Obtain the bounds  of the mapping. 
+	uintptr_t lower_va = (uintptr_t) ROUNDDOWN(lower_input, PGSIZE);
+	uintptr_t upper_va = (uintptr_t) ROUNDUP(upper_input, PGSIZE);
+
+	
+	
+	uintptr_t current_va; 
+	for (current_va = lower_va; current_va < upper_va; current_va += PGSIZE) {
+		// Get the corresponding page directory. 
+		pte_t * pte = pgdir_walk(kern_pgdir,  (void *) current_va, false);
+		if (!pte) {
+			cprintf("VADDR@0x%x: No Mapping Present \n", current_va);
+		}
+		else {
+			cprintf("VADDR@0x%x: Page Number(%d), PTE_ADDR(0x%x) \nPermission Bits: P(%x), W(%x), U(%x) \n", current_va, PGNUM(*pte), PTE_ADDR(*pte),  (PTE_P & *pte), (PTE_W & *pte)>>1, (PTE_U & *pte)>>2);
+		}		
+		
+	} 
+
+	return 0;
+}
 
 int
 mon_help(int argc, char **argv, struct Trapframe *tf)

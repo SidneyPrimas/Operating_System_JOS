@@ -358,13 +358,11 @@ page_init(void)
 		// Based on information in 1-4, don't allocate certain PageInfo structs in free linked list. 
 		//1) Marke physical page 0 as in use.
 		if (i == 0) {
-			cprintf("Skipped Page 0 \n");
 			pages[i].pp_link = NULL;
 			continue;
 		}
 		// Don't allocate pages between [IOPHYSMEM, EXTPHYSMEM)
 		else if ( i >= (IOPHYSMEM/PGSIZE) && i < (EXTPHYSMEM/PGSIZE)) {
-			cprintf("Skipped I/O. i:%d \n", i);
 			pages[i].pp_link = NULL;
 			continue;
 		}  
@@ -372,7 +370,6 @@ page_init(void)
 		// In physical memory, the kernel begins at EXTPHYSMEM. 
 		// The kernel ranges first_free_va/PGSIZE, which is the first free page after the kernel + bss + pages array.  
 		else if ( (i >= EXTPHYSMEM/PGSIZE) && i < first_free_va/PGSIZE) {
-			cprintf("Skipped pages allocated to kernel + bss + pages array. i:%d \n", i);
 			pages[i].pp_link = NULL;
 			continue;
 		}
@@ -974,7 +971,6 @@ check_kern_pgdir(void)
 			assert(pgdir[i] & PTE_P);
 			break;
 		default:
-			cprintf("pgdir[i]: %x, PDX(KERNBASE): %x, i: %x) \n", pgdir[i], PDX(KERNBASE), i);
 			if (i >= PDX(KERNBASE)) {
 				assert(pgdir[i] & PTE_P);
 				assert(pgdir[i] & PTE_W);
