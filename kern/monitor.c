@@ -35,45 +35,6 @@ static struct Command commands[] = {
 
 /***** Implementations of basic kernel monitor commands *****/
 
-// Dumps the contents of a range of memory. 
-// arg1: Initial Address
-// arg2: Number of Bytes
-int
-dump_memory(int argc, char **argv, struct Trapframe *tf) {
-	
-	// Check number of arguments
-	if (argc != 3) {
-		cprintf("Please only enter the upper/lowrer address bounds.\n");
-		return -1; 
-	}
-	
-	// Extract the arguments. 
-	char * arg1 = argv[1]; 
-	char * arg2 = argv[2];
-	
-	
-	// Make sure the arguments start with 0x. 
-	if (!('0' == *arg1 && 'x' == *(arg1+1))| !('0' == *arg2 && 'x' == *(arg2+1))) {
-		cprintf("Please enter arguments correctly. \n");
-		return -1; 
-	}
-
-	// Convert to int (assuming string is in hex format). 
-	char * start = (char *) atohex(arg1);
-	uint32_t total_bytes = (uint32_t) atohex(arg2);
-	
-	size_t count;
-	for (count = 0; count < total_bytes; count++) {
-		pte_t * pte = pgdir_walk(kern_pgdir,  &start[count], false);
-		if (!pte) {
-			cprintf("VADDR@0x%p: No Mapping Present at this address. \n", &start[count]);
-		} else {
-			cprintf("Address:%p \t\tMem: 0x%x\n", &start[count], (uint8_t)start[count]);
-		}
-	}
-
-	return 0; 
-}
 
 
 // Set the permission of any pte in current user space by providing a virtual address. 
@@ -163,6 +124,46 @@ showmappings(int argc, char **argv, struct Trapframe *tf) {
 	} 
 
 	return 0;
+}
+
+// Dumps the contents of a range of memory. 
+// arg1: Initial Address
+// arg2: Number of Bytes
+int
+dump_memory(int argc, char **argv, struct Trapframe *tf) {
+	
+	// Check number of arguments
+	if (argc != 3) {
+		cprintf("Please only enter the upper/lowrer address bounds.\n");
+		return -1; 
+	}
+	
+	// Extract the arguments. 
+	char * arg1 = argv[1]; 
+	char * arg2 = argv[2];
+	
+	
+	// Make sure the arguments start with 0x. 
+	if (!('0' == *arg1 && 'x' == *(arg1+1))| !('0' == *arg2 && 'x' == *(arg2+1))) {
+		cprintf("Please enter arguments correctly. \n");
+		return -1; 
+	}
+
+	// Convert to int (assuming string is in hex format). 
+	char * start = (char *) atohex(arg1);
+	uint32_t total_bytes = (uint32_t) atohex(arg2);
+	
+	size_t count;
+	for (count = 0; count < total_bytes; count++) {
+		pte_t * pte = pgdir_walk(kern_pgdir,  &start[count], false);
+		if (!pte) {
+			cprintf("VADDR@0x%p: No Mapping Present at this address. \n", &start[count]);
+		} else {
+			cprintf("Address:%p \t\tMem: 0x%x\n", &start[count], (uint8_t)start[count]);
+		}
+	}
+
+	return 0; 
 }
 
 int
