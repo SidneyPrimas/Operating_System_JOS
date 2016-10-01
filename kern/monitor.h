@@ -17,6 +17,12 @@ int mon_kerninfo(int argc, char **argv, struct Trapframe *tf);
 int mon_backtrace(int argc, char **argv, struct Trapframe *tf);
 int showmappings(int argc, char **argv, struct Trapframe *tf); 
 int set_pte_permissions(int argc, char **argv, struct Trapframe *tf);
-int dump_memory(int argc, char **argv, struct Trapframe *tf);
+int dump_memory_va(int argc, char **argv, struct Trapframe *tf);
+int dump_memory_pa(int argc, char **argv, struct Trapframe *tf);
+
+// helper
+uintptr_t 
+get_virtual_address(physaddr_t pa);
+
 
 #endif	// !JOS_KERN_MONITOR_H

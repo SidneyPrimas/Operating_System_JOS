@@ -30,7 +30,8 @@ static struct Command commands[] = {
 	{ "backtrace", "Displays the stacktrace", mon_backtrace},
 	{ "showmappings", "Input a range of Virtual Address to get PTE mappings.", showmappings}, 
 	{ "permissions", "Sets the permissions of a PTE based on a provided VA.", set_pte_permissions}, 
-	{"dump_memory", "Outpus the memory from the two provided address ranges.", dump_memory}, 
+	{"dump_mem_va", "Outpus the memory from the two provided address ranges.", dump_memory_va}, 
+	{"dump_mem_pa", "Outpus the memory from the two provided address ranges.", dump_memory_pa},
 };
 
 /***** Implementations of basic kernel monitor commands *****/
@@ -126,11 +127,11 @@ showmappings(int argc, char **argv, struct Trapframe *tf) {
 	return 0;
 }
 
-// Dumps the contents of a range of memory. 
+// Dumps the contents of a range of memory (virtual memory)
 // arg1: Initial Address
 // arg2: Number of Bytes
 int
-dump_memory(int argc, char **argv, struct Trapframe *tf) {
+dump_memory_va(int argc, char **argv, struct Trapframe *tf) {
 	
 	// Check number of arguments
 	if (argc != 3) {
@@ -164,6 +165,68 @@ dump_memory(int argc, char **argv, struct Trapframe *tf) {
 	}
 
 	return 0; 
+}
+
+// Dumps the contents of a range of memory (physical memory)
+// arg1: Initial Address
+// arg2: Number of Bytes
+int
+dump_memory_pa(int argc, char **argv, struct Trapframe *tf) {
+	
+	// Check number of arguments
+	if (argc != 3) {
+		cprintf("Please only enter the upper/lowrer address bounds.\n");
+		return -1; 
+	}
+	
+	// Extract the arguments. 
+	char * arg1 = argv[1]; 
+	char * arg2 = argv[2];
+	
+	
+	// Make sure the arguments start with 0x. 
+	if (!('0' == *arg1 && 'x' == *(arg1+1))| !('0' == *arg2 && 'x' == *(arg2+1))) {
+		cprintf("Please enter arguments correctly. \n");
+		return -1; 
+	}
+
+	// Convert to int (assuming string is in hex format). 
+	physaddr_t start = (physaddr_t) atohex(arg1);
+	uint32_t total_bytes = (uint32_t) atohex(arg2);
+	
+	size_t count;
+	for (count = 0; count < total_bytes; count++) {
+		physaddr_t va = get_virtual_address((physaddr_t) (start+count));
+		if (!va) {
+			cprintf("PADDR@0x%x: Physical address not mapped \n", va);
+		} else {
+			cprintf("Address:%x \t\tMem: 0x%x\n", va, *((char *)va) );
+		}
+	}
+
+	return 0; 
+}
+
+
+uintptr_t 
+get_virtual_address(physaddr_t pa) {
+	size_t count_pde;
+	for (count_pde = 0; count_pde < 1024; count_pde++) {
+		pde_t pde = kern_pgdir[count_pde];
+		if (pde & PTE_P) {
+			size_t count_pte;
+			pte_t *p = KADDR(PTE_ADDR(pde));
+			for (count_pte = 0; count_pte < 1024; count_pte++) {
+				pte_t pte = p[count_pte];
+				if (( pte & PTE_P) && (PGNUM(pte) == PGNUM(pa))){
+					return (uintptr_t) PGADDR(PDX(pde), PTX(pte), PGOFF(pa));
+				}
+	
+			}
+		}
+	
+	}
+	return 0;
 }
 
 int
