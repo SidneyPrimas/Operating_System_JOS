@@ -210,7 +210,14 @@ mem_init(void)
 	//////////////////////////////////////////////////////////////////////
 	// Make 'envs' point to an array of size 'NENV' of 'struct Env'.
 	// LAB 3: Your code here.
-
+	
+	//Initialize the beginning of the envs array in memory by assigning it the address of the next free page.  
+	envs = (struct Env *) boot_alloc(0);
+	// Allocate the actual memory to store the Env structure. We want to store NENV of these structs. 
+	boot_alloc(NENV*sizeof(struct Env));
+	//Initialize the allocated data to 0 or null. 
+	memset(envs, 0, NENV * sizeof(struct Env));
+	
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
 	// up the list of free physical pages. Once we've done so, all further
@@ -251,8 +258,16 @@ mem_init(void)
 	// (ie. perm = PTE_U | PTE_P).
 	// Permissions:
 	//    - the new image at UENVS  -- kernel R, user R
-	//    - envs itself -- kernel RW, user NONE
+	//    - envs itself -- kernel RW, user NONE (done when we map the entire kernalspace to physical addresses. 
 	// LAB 3: Your code here.
+	
+	boot_map_region(kern_pgdir, 
+			UENVS, // Maps va UENVS to the physical page where envs is currently located. Performed so that we can access the virtual address through paging. 
+			ROUNDUP(NENV * sizeof(struct Env), PGSIZE ), // Size needs to be a multiple of PGSIZE. 
+			PADDR(envs) , // This mapping is possible since we are in Kernel space, and have a KERNBASE offset from the physical address. 
+			PTE_U | PTE_P);
+	
+
 
 	//////////////////////////////////////////////////////////////////////
 
