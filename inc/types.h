@@ -55,6 +55,8 @@ typedef int32_t off_t;
 
 // Rounding operations (efficient when n is a power of 2)
 // Round down to the nearest multiple of n
+// A inidcates a address in memory represented as an in (a pointer to a byte in memory). 
+// N indicates the address intervals we are counting in (eg a page). We round up/down to this counting interval. 
 #define ROUNDDOWN(a, n)						\
 ({								\
 	uint32_t __a = (uint32_t) (a);				\

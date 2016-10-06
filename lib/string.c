@@ -8,6 +8,23 @@
 // Primespipe runs 3x faster this way.
 #define ASM 1
 
+// A simple atoi() function
+unsigned int atohex(const char * s) {
+ unsigned int result = 0;
+ int c ;
+ if ('0' == *s && 'x' == *(s+1)) { s+=2;
+  while (*s) {
+   result = result << 4;
+   if (c=(*s-'0'),(c>=0 && c <=9)) result|=c;
+   else if (c=(*s-'A'),(c>=0 && c <=5)) result|=(c+10);
+   else if (c=(*s-'a'),(c>=0 && c <=5)) result|=(c+10);
+   else break;
+   ++s;
+  }
+ }
+ return result;
+}
+
 int
 strlen(const char *s)
 {
