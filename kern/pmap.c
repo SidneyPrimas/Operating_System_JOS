@@ -160,7 +160,6 @@ boot_alloc(uint32_t n)
 void
 mem_init(void)
 {	
-	cprintf("***** mem_init\n");
 	uint32_t cr0;
 	size_t n;
 
@@ -169,7 +168,7 @@ mem_init(void)
 
 	// Remove this line when you're ready to test this function.
 
-	warn("mem_init: This function is not finished\n");
+
 
 	//////////////////////////////////////////////////////////////////////
 	// create initial page directory.
@@ -348,7 +347,7 @@ mem_init(void)
 void
 page_init(void)
 {	
-	cprintf("***** page_init\n");
+
 	// The example code here marks all physical pages as free.
 	// However this is not truly the case.  What memory is free?
 	//  1) Mark physical page 0 as in use.
@@ -434,7 +433,7 @@ page_init(void)
 struct PageInfo *
 page_alloc(int alloc_flags)
 {	
-	cprintf("***** page_alloc\n");
+
 	//Return NULL if out of free memory. 
 	// When page_free_list is NULL, we have reached the end of the linked list. So, we are out of free memory. 
 	if (page_free_list == NULL) {
@@ -466,7 +465,7 @@ page_alloc(int alloc_flags)
 void
 page_free(struct PageInfo *pp)
 {		
-	cprintf("***** page_free\n");
+
 	// Fill this function in
 	// Hint: You may want to panic if pp->pp_ref is nonzero or
 	// pp->pp_link is not NULL.
@@ -479,7 +478,7 @@ page_free(struct PageInfo *pp)
 	}
 	
 	// 1) Set pp->pp_link to the current page_free_list pointer
-	cprintf("page_free_list: %p \n", page_free_list);
+
 	pp->pp_link = page_free_list;
 	// 2) Update page_free_list to point to the pp passed into this fuction.
 	page_free_list = pp;
@@ -493,9 +492,10 @@ page_free(struct PageInfo *pp)
 void
 page_decref(struct PageInfo* pp)
 {	
-	cprintf("***** page_decref\n");
+
 	if (--pp->pp_ref == 0) {
-		cprintf("page_decref: Remove page with pp_ref %d \n", pp->pp_ref);
+		//debug
+		//cprintf("page_decref: Remove page with pp_ref %d \n", pp->pp_ref);
 		page_free(pp);
 		}
 }
@@ -657,7 +657,6 @@ boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm
 int
 page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 {	
-	cprintf("********** page_insert\n");
 	// Fill this function in
 	
 	// 1) If a page table doesn't exist for the va, allocate one, and insert it into pgdir. 
@@ -672,6 +671,7 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 	if (pp->pp_ref > 0) {
 		warn("page_insert: Inserted a page that is referenced somewhere else.\n");
 	}
+	
 	pp->pp_ref += 1;
 
 
@@ -690,15 +690,11 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 	// DEBUG
 	// Determine the old (currently in pte) and new PPN (from pp). Used to determine if we are adding the page multiple times to same va mapping. 
 	physaddr_t new_page_pa = page2pa(pp);
-	physaddr_t old_page_pa = PTE_ADDR(*pt_entry); 
-	if (new_page_pa == new_page_pa) {
-		cprintf("page_insert (insertin page into same va): link (%p), Ref (%d)\n", pp->pp_link, pp->pp_ref);
-	}
+
 	
 	
 	// ADD PAGE TO PAGE TABLE.  
 	// 3) At this point, we know there is no page mapped at va. So, we need to insert the page passed throught  the argument.
-	
 	
 	// Insert the PTE at the appropriate entry of the page table defined by the virtual address. 
 	// The entry is the PPN (the top 20 bits selected by PTE_ADDR) and the permission flags with Present bit enabled. 
@@ -722,7 +718,6 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 struct PageInfo *
 page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 {
-	cprintf("***** page_lookup\n");
 	// Fill this function in
 	
 	// 1) If the page table entry exists (the present bit has been set), return a pointer to the page table entry. Otherwise, we get null. 
@@ -772,15 +767,15 @@ page_lookup(pde_t *pgdir, void *va, pte_t **pte_store)
 void
 page_remove(pde_t *pgdir, void *va)
 {	
-	cprintf("***** page_remove\n");
 	// Fill this function in
 	
 	// 1) If the page table entry exists (the present bit has been set), return a pointer to the page table entry. Otherwise, we get null. Do not create a page table entry. 
 	pte_t *pt_entry_p;
 	struct PageInfo * page_p = page_lookup(pgdir, va, &pt_entry_p);
 	
-	cprintf("page_remove: Removing following page: %xpa, \n", page2pa(page_p) );
-	cprintf("page_remove: link (%p), Ref (%d)\n", page_p->pp_link, page_p->pp_ref);
+	//debug
+	//cprintf("page_remove: Removing following page: %xpa, \n", page2pa(page_p) );
+	//cprintf("page_remove: link (%p), Ref (%d)\n", page_p->pp_link, page_p->pp_ref);
 	
 	
 	

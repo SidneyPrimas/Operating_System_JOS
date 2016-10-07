@@ -65,6 +65,53 @@ trap_init(void)
 	extern struct Segdesc gdt[];
 
 	// LAB 3: Your code here.
+	
+	// Initialize the functions referred to in trapentry.S. 
+	// These functions have been set to global variables, and refer to the same addresses as in trapentry.S
+	void thandler0();
+	void thandler2();
+	void thandler3();
+	void thandler4();
+	void thandler5();
+	void thandler6();
+	void thandler7();
+	void thandler8();
+	void thandler10();
+	void thandler11();
+	void thandler12();
+	void thandler13();
+	void thandler14();
+	void thandler16();
+	void thandler17();
+	void thandler18();
+	void thandler19();
+	
+	//Setup the IDT (Inrerrupt/Trap Gate Descriptor Table))using the SETGATE macro.
+	// SETGATE Macro: SETGATE(gate, istrap, sel, off, dpl) 
+	// A single entry in the IDT is called a gate. We use gates to route interrupts to their handlers.
+	// Here we are initializing the gates int the IDT. 
+	// istrap = 0: Sets to interrupt gate, and thus turn-off other interrupts.
+	// sel = GD_KT: Sets the code segment selector. Allows us to access the .text in kernel. 
+	// off = function address: The offset should be the function address (a 32-bit address put in offset(31-16) and offset(15-0))
+	// dpl = 0: Since we are handling built-in exceptions, we require the maximum privilege level
+	SETGATE(idt[0], 0, GD_KT, &thandler0, 0);
+	SETGATE(idt[2], 0, GD_KT, &thandler2, 0);
+	SETGATE(idt[3], 0, GD_KT, &thandler3, 0);
+	SETGATE(idt[4], 0, GD_KT, &thandler4, 0);
+	SETGATE(idt[5], 0, GD_KT, &thandler5, 0);
+	SETGATE(idt[6], 0, GD_KT, &thandler6, 0);
+	SETGATE(idt[7], 0, GD_KT, &thandler7, 0);
+	SETGATE(idt[8], 0, GD_KT, &thandler8, 0);
+	SETGATE(idt[10], 0, GD_KT, &thandler10, 0);
+	SETGATE(idt[11], 0, GD_KT, &thandler11, 0);
+	SETGATE(idt[12], 0, GD_KT, &thandler12, 0);
+	SETGATE(idt[13], 0, GD_KT, &thandler13, 0);
+	SETGATE(idt[14], 0, GD_KT, &thandler14, 0);
+	SETGATE(idt[16], 0, GD_KT, &thandler16, 0);
+	SETGATE(idt[17], 0, GD_KT, &thandler17, 0);
+	SETGATE(idt[18], 0, GD_KT, &thandler18, 0);
+	SETGATE(idt[19], 0, GD_KT, &thandler19, 0);
+
 
 	// Per-CPU setup 
 	trap_init_percpu();
@@ -143,15 +190,27 @@ trap_dispatch(struct Trapframe *tf)
 {
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
-
-	// Unexpected trap: The user process or the kernel has a bug.
-	print_trapframe(tf);
-	if (tf->tf_cs == GD_KT)
-		panic("unhandled trap in kernel");
-	else {
-		env_destroy(curenv);
-		return;
+	
+	// Use trapnumber from tf to figure out which exception to handle. 
+	// For PGFL, route to page_fault_handler function. 
+	// For most other exceptions, just kill the user environment. 
+	switch(tf->tf_trapno) {
+		case T_PGFLT :
+			cprintf("Page Fault Exception \n"); 
+			page_fault_handler(tf);
+			return; 
+		
+		default : 
+			print_trapframe(tf);
+			if (tf->tf_cs == GD_KT)
+				panic("unhandled trap in kernel");
+			else {
+				// For most trap vectors/codes just kill the environment. 
+				env_destroy(curenv);
+				return;
+			}			
 	}
+
 }
 
 void
@@ -167,14 +226,15 @@ trap(struct Trapframe *tf)
 	assert(!(read_eflags() & FL_IF));
 
 	cprintf("Incoming TRAP frame at %p\n", tf);
-
+	
+	// Check if we are coming from user mode. 
 	if ((tf->tf_cs & 3) == 3) {
 		// Trapped from user mode.
 		assert(curenv);
 
 		// Copy trap frame (which is currently on the stack)
 		// into 'curenv->env_tf', so that running the environment
-		// will restart at the trap point.
+		// will restart at the trap point. This is used in env_run defined in env.c
 		curenv->env_tf = *tf;
 		// The trapframe on the stack should be ignored from here on.
 		tf = &curenv->env_tf;
@@ -202,6 +262,7 @@ page_fault_handler(struct Trapframe *tf)
 	fault_va = rcr2();
 
 	// Handle kernel-mode page faults.
+	
 
 	// LAB 3: Your code here.
 
