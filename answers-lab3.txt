@@ -1,3 +1,8 @@
 Ansers for Lab3: 
 1) The purpose of heaving an individual handler function for each exception and interrupt is so that we can pass the trapno through the stack to be handled by the c functions and that we can create a struct Trapframe directly from the stack through proper organiztion of the stack. Essentially, the gate in stored in idt points us to the address of a function. This function sets up the stack so that it can be converted in a struct Trapframe. As part of that Trapframe, we get trapno. This trapno allows us to then to handle each exception in C seperataly, if needed. 
 2) By calling int $14, the user attempts to activate an interrupt that it doesn't have access to (based on the gate definition, the environment needs to be at a higher privilige level to invoke this exeption). Thus, when this exeption is being handled by the kernel through the idt, the kernel throws a general protection fault, which is what we end up seeing. If int $14 would be allowed, then a Page Fault error is thrown instead, which confirms our answer. The page fault error will be handled through a seperate page fault handler function in trap.c. 
+
+Fix question above: stack is setup properly so tf can be passed as argument. 
+
+3) Talk about the user calling this interrupt directly (and not the kernel). 
+4) Restricts which interrupts the user can call. This way we know that when we see an interrupt it's representative of an issue, and not just a user doing something. 

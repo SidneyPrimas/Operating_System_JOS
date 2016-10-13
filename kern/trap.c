@@ -91,12 +91,14 @@ trap_init(void)
 	// A single entry in the IDT is called a gate. We use gates to route interrupts to their handlers.
 	// Here we are initializing the gates int the IDT. 
 	// istrap = 0: Sets to interrupt gate, and thus turn-off other interrupts.
-	// sel = GD_KT: Sets the code segment selector. Allows us to access the .text in kernel. 
+	// sel = GD_KT: Sets the code segment selector. Allows us to access the .text in kernel. If we are routing to a user functin, use GD_UT. 
 	// off = function address: The offset should be the function address (a 32-bit address put in offset(31-16) and offset(15-0))
 	// dpl = 0: Since we are handling built-in exceptions, we require the maximum privilege level
 	SETGATE(idt[0], 0, GD_KT, &thandler0, 0);
 	SETGATE(idt[2], 0, GD_KT, &thandler2, 0);
-	SETGATE(idt[3], 0, GD_KT, &thandler3, 0);
+	// Vector 3 is the breakpoint interrupt. Most other interrupts will be called by instructions in kernel space. We essentially don't want to allow a user to call these interrupts directly. 
+	// However, the breakpoint interrupt is callable within the user space. Thus, we must indicate this in the gate, or the hardware will through a general protection fault. 
+	SETGATE(idt[3], 0, GD_KT, &thandler3, 3);
 	SETGATE(idt[4], 0, GD_KT, &thandler4, 0);
 	SETGATE(idt[5], 0, GD_KT, &thandler5, 0);
 	SETGATE(idt[6], 0, GD_KT, &thandler6, 0);
@@ -199,8 +201,14 @@ trap_dispatch(struct Trapframe *tf)
 			cprintf("Page Fault Exception \n"); 
 			page_fault_handler(tf);
 			return; 
+			
+			
+		case T_BRKPT : 
+			cprintf("Breakpoint Exception \n");
+			monitor(tf);
+			return;
 		
-		default : 
+		default: 
 			print_trapframe(tf);
 			if (tf->tf_cs == GD_KT)
 				panic("unhandled trap in kernel");
@@ -213,6 +221,7 @@ trap_dispatch(struct Trapframe *tf)
 
 }
 
+// We essentially manually setup the stack so that *tf is the tf structure (even though no argument has been directly passed). 
 void
 trap(struct Trapframe *tf)
 {
@@ -227,16 +236,19 @@ trap(struct Trapframe *tf)
 
 	cprintf("Incoming TRAP frame at %p\n", tf);
 	
-	// Check if we are coming from user mode. 
+	// Check if we are coming from user mode. If it's coming from user mode, update the tf variable in curenv->env_tf. 
+	// If not, then (???) we are coming from Kernel mode and the curenv is already updated (???)
 	if ((tf->tf_cs & 3) == 3) {
 		// Trapped from user mode.
 		assert(curenv);
 
 		// Copy trap frame (which is currently on the stack)
 		// into 'curenv->env_tf', so that running the environment
-		// will restart at the trap point. This is used in env_run defined in env.c
+		// will restart at the trap point. This is used in env_run defined in env.c. 
+		// This actually copies the data on the stack into curenv->env_tf. 
 		curenv->env_tf = *tf;
 		// The trapframe on the stack should be ignored from here on.
+		// Essentially, we update tf to no longer point to the stack, but instead pont to the data held in curenv->env_tf
 		tf = &curenv->env_tf;
 	}
 
@@ -261,10 +273,17 @@ page_fault_handler(struct Trapframe *tf)
 	// Read processor's CR2 register to find the faulting address
 	fault_va = rcr2();
 
-	// Handle kernel-mode page faults.
-	
-
 	// LAB 3: Your code here.
+	// Handle kernel-mode page faults.
+	if ((tf->tf_cs & 3) == 0) {
+		print_trapframe(tf);
+		panic("page_fault_handler: The previous code segment came from a kernel CPL. \n");
+	}
+	
+	if (tf->tf_cs == GD_KT) {
+		print_trapframe(tf);
+		panic("page_fault_handler: The previous code segment has a kernel DPL. \n");
+	}
 
 	// We've already handled kernel-mode exceptions, so if we get here,
 	// the page fault happened in user mode.
