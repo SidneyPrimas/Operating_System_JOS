@@ -21,6 +21,17 @@ sys_cputs(const char *s, size_t len)
 	// Destroy the environment if not.
 
 	// LAB 3: Your code here.
+	// Get the environment from the envs array using envid2env. 
+	
+	int r;
+	struct Env *e;
+	// Gets a pointer to the environment basedin envid from curenv (the one we are currently in). 
+	// Can use curenv->env_id since we only have a single environment for now. And, we have the same page direcotry in this enviornment.
+	// Anoother possibility to use curenv: A single environment always has both a kernel and a user space. The user always kicks the interrupt into the kernel from the same environment. 
+	if ((r = envid2env(curenv->env_id, &e, 1)) < 0) {
+		panic("sys_cputs: Correct environment cannot be found. Error: %e \n", r);
+	}
+	user_mem_assert(e, s, len, PTE_U | PTE_P); 
 
 	// Print the string supplied by the user.
 	cprintf("%.*s", len, s);
@@ -70,11 +81,21 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 	// Return any appropriate return value.
 	// LAB 3: Your code here.
 
-	panic("syscall not implemented");
 
 	switch (syscallno) {
-	default:
-		return -E_INVAL;
+		case SYS_cputs : 
+			sys_cputs((const char *) a1, a2); 
+			return 0; 
+		case SYS_cgetc : 
+			return sys_cgetc();
+		case SYS_getenvid : 
+			return sys_getenvid();
+		case SYS_env_destroy : 
+			return sys_env_destroy((envid_t) a1);
+	
+		default:
+			return -E_INVAL;
 	}
 }
+
 

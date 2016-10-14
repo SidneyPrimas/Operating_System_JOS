@@ -838,6 +838,43 @@ int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
 	// LAB 3: Your code here.
+	
+	// Notes: Since we are passing an array with a pre-defined length, the array will be continious in the virtual address space. 
+	// The va will be the lowest address, and the highest will be va + len -1.  
+
+	
+	//  Make sure pages have correct permissions and are below ULIM
+	// index_addr is an address that is within the array. 
+	uintptr_t va_int = (uintptr_t) va;
+	uintptr_t index_addr; 
+	for (index_addr = va_int ; index_addr < va_int + len;  index_addr += PGSIZE) {
+	
+		// 1) Make sure all the addresses are below ULIM
+		if (index_addr >= ULIM) {
+			user_mem_check_addr = (uintptr_t) MAX(ULIM, va_int); 
+			return -E_FAULT;
+		}
+	
+		// 2) If the page table entry exists (the present bit has been set), return a pointer to the page table entry. Otherwise, we get null. 
+		pte_t * pt_entry = pgdir_walk(env->env_pgdir, (char *) index_addr, false ); 
+	
+		// 3) If the pt_entry doesn't exist (present bit not set), return null.
+		// The page table doesn't exist in the directory.  
+		if (!pt_entry) {
+			// Selects the first virtual address that belongs to a page without the correct permissins. 
+			// This address is either va on the first page, or the downward rounded index_addr value. 
+			user_mem_check_addr = (uintptr_t) MAX(ROUNDDOWN(index_addr, PGSIZE), va_int); 
+			return -E_FAULT; 
+		}
+	
+		// 4) Handle case when correct permissions are not set. 
+		// We only check the permission bits that they request us to check. 
+		if ( (*pt_entry & (perm | PTE_P)) != (perm | PTE_P)) {
+			user_mem_check_addr = (uintptr_t) MAX(ROUNDDOWN(index_addr, PGSIZE), va_int); 
+			return -E_FAULT;
+		}
+		
+	}
 
 	return 0;
 }

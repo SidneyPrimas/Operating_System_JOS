@@ -73,6 +73,7 @@
 	TRAPHANDLER(thandler17, 17);
 	TRAPHANDLER_NOEC(thandler18, 18);
 	TRAPHANDLER_NOEC(thandler19, 19);
+	TRAPHANDLER_NOEC(thandler48, 48);
 
 
 /*

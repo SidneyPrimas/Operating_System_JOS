@@ -85,6 +85,7 @@ trap_init(void)
 	void thandler17();
 	void thandler18();
 	void thandler19();
+	void thandler48();
 	
 	//Setup the IDT (Inrerrupt/Trap Gate Descriptor Table))using the SETGATE macro.
 	// SETGATE Macro: SETGATE(gate, istrap, sel, off, dpl) 
@@ -113,7 +114,9 @@ trap_init(void)
 	SETGATE(idt[17], 0, GD_KT, &thandler17, 0);
 	SETGATE(idt[18], 0, GD_KT, &thandler18, 0);
 	SETGATE(idt[19], 0, GD_KT, &thandler19, 0);
-
+	// Initialize the interrupt diescriptor to use vector 48 to handle system calls. Since system calls can be produced by user programs, set the DPL to 3. 
+	// Essentially, this is a software interrupt. 
+	SETGATE(idt[48], 0, GD_KT, &thandler48, 3);
 
 	// Per-CPU setup 
 	trap_init_percpu();
@@ -207,6 +210,22 @@ trap_dispatch(struct Trapframe *tf)
 			cprintf("Breakpoint Exception \n");
 			monitor(tf);
 			return;
+			
+		case T_SYSCALL: 
+			cprintf("System Call Interrupt \n");
+			// Extract the arguments from the registers. 
+			// Right before the software interrupt was called, these registers were filled with the correct arguments by inline assembly. 
+			// When the int assembly instruction was called, we transferred these registers through the stack and into the tf variable. 
+			uint32_t syscallno = tf->tf_regs.reg_eax;
+			uint32_t a1 = tf->tf_regs.reg_edx;
+			uint32_t a2 = tf->tf_regs.reg_ecx;
+			uint32_t a3 = tf->tf_regs.reg_ebx; 
+			uint32_t a4 = tf->tf_regs.reg_edi; 
+			uint32_t a5 = tf->tf_regs.reg_esi; 
+			
+			// Put the return data into the eax register. 
+			tf->tf_regs.reg_eax = syscall(syscallno, a1, a2, a3, a4, a5); 		
+			return; 
 		
 		default: 
 			print_trapframe(tf);
@@ -277,9 +296,10 @@ page_fault_handler(struct Trapframe *tf)
 	// Handle kernel-mode page faults.
 	if ((tf->tf_cs & 3) == 0) {
 		print_trapframe(tf);
-		panic("page_fault_handler: The previous code segment came from a kernel CPL. \n");
+		panic("page_fault_handler: The previous code segment came from a kernel CPL. We panicked from the kernel. \n");
 	}
 	
+	// ToDo: Figure out if this check is redundant or checks different setup. 
 	if (tf->tf_cs == GD_KT) {
 		print_trapframe(tf);
 		panic("page_fault_handler: The previous code segment has a kernel DPL. \n");

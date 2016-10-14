@@ -273,7 +273,6 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 	while(current_bp_v != final_bp_v) 
 	{	
 		
-		
 		// Obtain Instruction Pointer. This is always one address position prior to prev_bp_p.
 		// Once we have the correct address of the eip, dereference it to get the value. 
 		// When adding an integer to an address/pointer, we offset the bits by the size of the  object that the pointer points to. In this case, that should be 32-bits. 

@@ -4,6 +4,7 @@
 .data
 // Define the global symbols 'envs', 'pages', 'uvpt', and 'uvpd'
 // so that they can be used in C as if they were ordinary global arrays.
+// Essentially, we map these variables to pre-defined places in virtual address memory. 
 	.globl envs
 	.set envs, UENVS
 	.globl pages

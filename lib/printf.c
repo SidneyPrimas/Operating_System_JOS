@@ -41,7 +41,10 @@ vcprintf(const char *fmt, va_list ap)
 
 	b.idx = 0;
 	b.cnt = 0;
+	// Puts data onto buffer (and only prints every 256 characters)
 	vprintfmt((void*)putch, &b, fmt, ap);
+	// Forces any remaining characters to print. 
+	// b.idx represents len of the existing buffer. 
 	sys_cputs(b.buf, b.idx);
 
 	return b.cnt;
@@ -52,7 +55,8 @@ cprintf(const char *fmt, ...)
 {
 	va_list ap;
 	int cnt;
-
+	
+	// va_start, va_end and va_arg is used to get additional arguments from the parent functin c print. These additional arguments are passed around with ap. 
 	va_start(ap, fmt);
 	cnt = vcprintf(fmt, ap);
 	va_end(ap);
