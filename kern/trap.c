@@ -69,6 +69,7 @@ trap_init(void)
 	// Initialize the functions referred to in trapentry.S. 
 	// These functions have been set to global variables, and refer to the same addresses as in trapentry.S
 	void thandler0();
+	void thandler1();
 	void thandler2();
 	void thandler3();
 	void thandler4();
@@ -96,6 +97,7 @@ trap_init(void)
 	// off = function address: The offset should be the function address (a 32-bit address put in offset(31-16) and offset(15-0))
 	// dpl = 0: Since we are handling built-in exceptions, we require the maximum privilege level
 	SETGATE(idt[0], 0, GD_KT, &thandler0, 0);
+	SETGATE(idt[1], 0, GD_KT, &thandler1, 3);
 	SETGATE(idt[2], 0, GD_KT, &thandler2, 0);
 	// Vector 3 is the breakpoint interrupt. Most other interrupts will be called by instructions in kernel space. We essentially don't want to allow a user to call these interrupts directly. 
 	// However, the breakpoint interrupt is callable within the user space. Thus, we must indicate this in the gate, or the hardware will through a general protection fault. 
@@ -205,9 +207,9 @@ trap_dispatch(struct Trapframe *tf)
 			page_fault_handler(tf);
 			return; 
 			
-			
+		case T_DEBUG : 
 		case T_BRKPT : 
-			cprintf("Breakpoint Exception \n");
+			cprintf("Breakpoint or Debug Exception \n");
 			monitor(tf);
 			return;
 			

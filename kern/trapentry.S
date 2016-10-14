@@ -57,6 +57,7 @@
  	 * Also, pushes number (wich is the interrupt vetor) onto the stack, which allows us to retreive it later (to jump into IDT). 
  	 */
 	TRAPHANDLER_NOEC(thandler0, 0);
+	TRAPHANDLER_NOEC(thandler1, 1);
 	TRAPHANDLER_NOEC(thandler2, 2);
 	TRAPHANDLER_NOEC(thandler3, 3);
 	TRAPHANDLER_NOEC(thandler4, 4);

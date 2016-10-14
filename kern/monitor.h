@@ -19,6 +19,8 @@ int showmappings(int argc, char **argv, struct Trapframe *tf);
 int set_pte_permissions(int argc, char **argv, struct Trapframe *tf);
 int dump_memory_va(int argc, char **argv, struct Trapframe *tf);
 int dump_memory_pa(int argc, char **argv, struct Trapframe *tf);
+int continue_breakpoint(int argc, char **argv, struct Trapframe *tf); 
+int single_step(int argc, char **argv, struct Trapframe *tf);
 
 // helper
 uintptr_t 

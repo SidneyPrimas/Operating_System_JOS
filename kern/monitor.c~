@@ -14,6 +14,7 @@
 #include <kern/kdebug.h>
 #include <kern/trap.h>
 #include <kern/pmap.h>
+#include <kern/env.h>
 
 
 #define CMDBUF_SIZE	80	// enough for one VGA text line
@@ -34,10 +35,48 @@ static struct Command commands[] = {
 	{ "permissions", "Sets the permissions of a PTE based on a provided VA.", set_pte_permissions}, 
 	{"dump_mem_va", "Outpus the memory from the two provided address ranges.", dump_memory_va}, 
 	{"dump_mem_pa", "Outpus the memory from the two provided address ranges.", dump_memory_pa},
+	{"continue", "During a breakpoint exception, continues executing the code.", continue_breakpoint},
+	{"si", "During a breakpoint exception, single step through each assembly step.", single_step},
 };
 
 /***** Implementations of basic kernel monitor commands *****/
 
+int
+continue_breakpoint(int argc, char **argv, struct Trapframe *tf) {
+
+	// Make sure that single stepping is disabled by setting trap flag to 0. 
+	tf->tf_eflags = (tf->tf_eflags) & (~FL_TF);
+	
+	// Return to the current environment, which should be running.
+	if(curenv && curenv->env_status == ENV_RUNNING) {
+		env_run(curenv);
+		panic("continue_breakpoint in monitor.c: Should have jumped back to code that called the breakpoint. ");
+	} else {
+		cprintf("Warning: You are trying to continue to a different environment (not the currently running environment). Continue is meant to be used with breakpoint. \n");
+		return -1; 
+	}
+	
+	return -1; 
+}
+
+int
+single_step(int argc, char **argv, struct Trapframe *tf) {
+	
+	// Turn on the trap flag in eflags. The trap flag is a debugging mechanism implemented by the processor that throws int $1 after every instruction. 
+	tf->tf_eflags = (tf->tf_eflags) | (FL_TF); 
+	
+	// Return to the current environment, which should be running.
+	if(curenv && curenv->env_status == ENV_RUNNING) {
+		env_run(curenv);
+		panic("single_step in monitor.c: Should have jumped back to code that called the breakpoint. ");
+	} else {
+		cprintf("Warning: You are trying to continue to a different environment (not the currently running environment). Continue is meant to be used with breakpoint. \n");
+		return -1
+	}
+	
+	return -1;
+
+}
 
 
 // Set the permission of any pte in current user space by providing a virtual address. 
@@ -272,7 +311,6 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 	// Print all relevant items within current_bp_p stack frame. 
 	while(current_bp_v != final_bp_v) 
 	{	
-		cprintf("current_bp_v: %x \n", current_bp_v); 
 		
 		// Obtain Instruction Pointer. This is always one address position prior to prev_bp_p.
 		// Once we have the correct address of the eip, dereference it to get the value. 
