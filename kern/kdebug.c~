@@ -144,7 +144,6 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 		// LAB 3: Your code here.
 		
 		// Environment is used to find the page directory. 
-		// In this debug mode, we are bouncing between kernel and user in the same environment. 
 		if (user_mem_check(curenv, usd, sizeof(struct UserStabData), PTE_P | PTE_U) < 0) {
 			cprintf("debuginfo_eip: usd struct is not a valid memory address. \n");
 			return -1; 

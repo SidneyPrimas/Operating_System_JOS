@@ -18,6 +18,8 @@
 #define GD_UD     0x20     // user data
 #define GD_TSS0   0x28     // Task segment selector for CPU 0
 
+// Notes: The pages array, env array, kernel space etc are mapped through page tables during setup in pmap.c. 
+
 /*
  * Virtual memory map:                                Permissions
  *                                                    kernel/user

@@ -71,7 +71,7 @@ single_step(int argc, char **argv, struct Trapframe *tf) {
 		panic("single_step in monitor.c: Should have jumped back to code that called the breakpoint. ");
 	} else {
 		cprintf("Warning: You are trying to continue to a different environment (not the currently running environment). Continue is meant to be used with breakpoint. \n");
-		return -1; 
+		return -1
 	}
 	
 	return -1;
