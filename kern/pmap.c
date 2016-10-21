@@ -286,12 +286,16 @@ mem_init(void)
 	// We don't need to allocate the stack based on how the stack grows. 
 	// Allocate the stack based on the chunks
 	// We don't need to allocate the guard page. It's just left open for now. 
-	boot_map_region(kern_pgdir, 
+	
+	//IMPORTANT NOTE: Once we moved to a multi-processor implementation, kernel stacks for each processor as setup in mem_init_mp()
+	
+	/*boot_map_region(kern_pgdir, 
 		KSTACKTOP-KSTKSIZE, //Check memlayout.h
 		KSTKSIZE, //Check memlayout.h
 		PADDR(bootstack) , // bootstack[] defined in pmap.h. 
 		PTE_W | PTE_P);
-		
+	*/
+	
 	//////////////////////////////////////////////////////////////////////
 	// Map all of physical memory at KERNBASE.
 	// Ie.  the VA range [KERNBASE, 2^32) should map to
@@ -359,8 +363,22 @@ mem_init_mp(void)
 	//     Permissions: kernel RW, user NONE
 	//
 	// LAB 4: Your code here:
+	
+	// Setup the kernel stacks for NCPUs (or the maximum number of CPUs possible). Map physical address from percpu_kstacks[i] to a virtual address in region [KSTACKTOP-PTSIZE, KSTACKTOP)
+	// Note: percpu_kstacks[i] is a physical address that the CPUs kernal stack is mapped to (from a virtual address in region [KSTACKTOP-PTSIZE, KSTACKTOP). 
+	size_t i; 
+	for (i = 0; i < NCPU; i++) {
+	
+		boot_map_region(kern_pgdir, 
+			KSTACKTOP - i * (KSTKSIZE + KSTKGAP) - KSTKSIZE, // Make sure to provide the va at lowest point in memory (highest pointin stack) 
+			KSTKSIZE, 
+			PADDR(percpu_kstacks[i]) , // &percpu_kstacks[i] is a virtual address that the CPUs kernal stack is mapped to. The address is above kernbase because it was allocated by the kernel, and thus can be mapped directly to the physical address with PADDR. 
+			PTE_W | PTE_P);
+		}
 
 }
+
+
 
 // --------------------------------------------------------------
 // Tracking of physical pages.
@@ -374,6 +392,7 @@ mem_init_mp(void)
 // allocator functions below to allocate and deallocate physical
 // memory via the page_free_list.
 //
+// Note: Indicates which physical memory can/cannot be used. 
 void
 page_init(void)
 {
@@ -433,6 +452,11 @@ page_init(void)
 		// In physical memory, the kernel begins at EXTPHYSMEM. 
 		// The kernel ranges first_free_va/PGSIZE, which is the first free page after the kernel + bss + pages array.  
 		else if ( (i >= EXTPHYSMEM/PGSIZE) && i < first_free_va/PGSIZE) {
+			pages[i].pp_link = NULL;
+			continue;
+		}
+		// MPENTRY is the base address of a page that stores that startup code for new processors. Since new processors will always use this startup code from this location in memory, we mark this page as in-use, and not available to the processor for future allocation. 
+		else if (i == MPENTRY_PADDR/PGSIZE) {
 			pages[i].pp_link = NULL;
 			continue;
 		}
@@ -588,7 +612,6 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 		if(!newPage) {
 			// Code instructinos indicate this might be possible. 
 			warn("pgdir_walk: page_alloc failed to get a new page. \n");
-			// Important: Needs to be negative. 
 			return NULL;
 		} 
 				
@@ -653,7 +676,7 @@ boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm
 		
 		//If entry already exists in user table, panic. 
 		if (*pt_entry & PTE_P) {
-			panic("boot_map_region: During Virtual Memory Initialization, the page has already been mapped. \n");
+			warn("boot_map_region: During Virtual Memory Initialization, the page has already been mapped. \n");
 		}
 		// Since this memory mapping is performed during initalization, we know that there shouldn't be anything mapped to the entry. 
 		*pt_entry = PTE_ADDR(pa + i*PGSIZE) | perm | PTE_P; 
@@ -880,7 +903,33 @@ mmio_map_region(physaddr_t pa, size_t size)
 	// Hint: The staff solution uses boot_map_region.
 	//
 	// Your code here:
-	panic("mmio_map_region not implemented");
+	
+	// Check assumptions
+	assert(base%PGSIZE == 0);
+	assert(pa%PGSIZE == 0 );
+	
+	// Check to ensure we don't overlfow MMIOLIM. 
+	if ((base + size) >= MMIOLIM) {
+		panic("mmio_map_region: We overfloed MMIO mapped region during initial page allocation. \n");
+	}
+
+	
+	// Map [pa,pa+size) to the [base,base+size) to enable paging. 
+	boot_map_region(kern_pgdir, //Use the kernel page directory, since we are configuring the initial kernel. 
+		base, 
+		ROUNDUP(size, PGSIZE), 
+		pa, 
+		PTE_PCD | PTE_PWT | PTE_W | PTE_P);
+
+	
+	// With the pages mapped: 1) update base to the beginning of the next unmapped base, and 2) return the base pointer of the region just mapped. 
+	char * base_current = (char *) base; 
+	
+	// Update at which virtual address to begin the next MMIO allocation. . 
+	base =ROUNDUP(base + size, PGSIZE); 
+	return base_current; 
+	
+	
 }
 
 static uintptr_t user_mem_check_addr;
@@ -1145,9 +1194,10 @@ check_kern_pgdir(void)
 	// (updated in lab 4 to check per-CPU kernel stacks)
 	for (n = 0; n < NCPU; n++) {
 		uint32_t base = KSTACKTOP - (KSTKSIZE + KSTKGAP) * (n + 1);
-		for (i = 0; i < KSTKSIZE; i += PGSIZE)
+		for (i = 0; i < KSTKSIZE; i += PGSIZE) {
 			assert(check_va2pa(pgdir, base + KSTKGAP + i)
 				== PADDR(percpu_kstacks[n]) + i);
+		}
 		for (i = 0; i < KSTKGAP; i += PGSIZE)
 			assert(check_va2pa(pgdir, base + i) == ~0);
 	}

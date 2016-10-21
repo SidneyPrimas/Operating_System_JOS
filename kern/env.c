@@ -608,6 +608,10 @@ env_run(struct Env *e)
 	
 	//5) Use lcr3() to switch to it's address space. lcr3 holds a physical address. 
 	lcr3(PADDR(e->env_pgdir));
+	
+	// Relase the kernel lock. We are no longer n the kernel. 
+	// ToDo: Make sure it makes sense to release lock here. 
+	//unlock_kernel();
 
 	//6) use env_pop_tf
 	env_pop_tf(&(e->env_tf)); 
