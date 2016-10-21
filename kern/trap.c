@@ -251,7 +251,7 @@ trap_dispatch(struct Trapframe *tf)
 	}
 	
 	if (tf->tf_trapno == T_SYSCALL) {
-		cprintf("System Call Interrupt \n");
+		cprintf("System Call Interrupt! \n");
 		// Extract the arguments from the registers. 
 		// Right before the software interrupt was called, these registers were filled with the correct arguments by inline assembly. 
 		// When the int assembly instruction was called, we transferred these registers through the stack and into the tf variable. 
@@ -315,7 +315,7 @@ trap(struct Trapframe *tf)
 	assert(!(read_eflags() & FL_IF));
 
 
-	cprintf("Incoming TRAP frame at %p\n", tf);
+	//cprintf("Incoming TRAP frame at %p\n", tf);
 	
 	// Check if we are coming from user mode. If it's coming from user mode, update the tf variable in curenv->env_tf. 
 	// If not, then (???) we are coming from Kernel mode and the curenv is already updated (???)
@@ -324,7 +324,7 @@ trap(struct Trapframe *tf)
 		// Acquire the big kernel lock before doing any
 		// serious kernel work.
 		// LAB 4: Your code here.
-		//lock_kernel();
+		lock_kernel();
 		
 		assert(curenv);
 

@@ -611,7 +611,7 @@ env_run(struct Env *e)
 	
 	// Relase the kernel lock. We are no longer n the kernel. 
 	// ToDo: Make sure it makes sense to release lock here. 
-	//unlock_kernel();
+	unlock_kernel();
 
 	//6) use env_pop_tf
 	env_pop_tf(&(e->env_tf)); 

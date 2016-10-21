@@ -29,6 +29,35 @@ sched_yield(void)
 	// below to halt the cpu.
 
 	// LAB 4: Your code here.
+	
+	// Set initial to beginning of envs array or just after previously running env. 
+	uint32_t initial = !curenv ? 0: ENVX(curenv->env_id) + 1;
+	// i i
+	size_t i; 
+	// Initiate round-robin at next env after the one current running.  
+	for (i = initial;; i++) {
+	
+	
+	// If we have looped through all environments back to one past previously running environment:  1) check if it's running and run it, or 2) break out of loop and call sched_halt()
+		if ((i >= NENV) && (i%NENV == initial)) {
+		
+			// Check the previously running environment (in previous position). Run it when:  1) check if we still can run it, and 2) make sure it's actually the same environment. 
+			if ((curenv != NULL) && (curenv->env_status == ENV_RUNNING) && (envs[(i-1)%NENV].env_id == curenv->env_id)) {
+				env_run(curenv);
+			}
+			
+			cprintf("shed_yield: No RUNNABLE environments found \n");
+			break; 
+		}
+	
+	
+		// If we found a runnable environemnt, call env_run (which will set the previously running environment to runnable and then run the new environment). 
+		if (envs[i%NENV].env_status == ENV_RUNNABLE) {
+			env_run(&envs[i%NENV]);
+		}
+		
+	}
+	
 
 	// sched_halt never returns
 	sched_halt();
@@ -41,6 +70,8 @@ void
 sched_halt(void)
 {
 	int i;
+	
+	cprintf("sched_halt debug: Running sched_halt() \n");
 
 	// For debugging and testing purposes, if there are no runnable
 	// environments in the system, then drop into the kernel monitor.

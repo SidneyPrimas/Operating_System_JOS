@@ -51,7 +51,7 @@ i386_init(void)
 	
 	// Lock the kernel before the BSP wakes up the CPUs
 	// Ensures that non of the CPUs will execute common kernel code until all the CPUs have been started. 
-	//lock_kernel();
+	lock_kernel();
 	// Starting non-boot CPUs
 	boot_aps();
 
@@ -60,7 +60,9 @@ i386_init(void)
 	ENV_CREATE(TEST, ENV_TYPE_USER);
 #else
 	// Touch all you want.
-	ENV_CREATE(user_primes, ENV_TYPE_USER);
+	ENV_CREATE(user_yield, ENV_TYPE_USER);
+	ENV_CREATE(user_yield, ENV_TYPE_USER);
+	ENV_CREATE(user_yield, ENV_TYPE_USER);
 
 #endif // TEST*
 
@@ -120,8 +122,8 @@ mp_main(void)
 	//
 	// Your code here:
 	// Need the lock because yield will indicate that the kernel can run common kernel code. 
-	//lock_kernel();
-	//sched_yield();
+	lock_kernel();
+	sched_yield();
 	
 	// Remove this after you finish Exercise 4
 	//for (;;);
