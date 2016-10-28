@@ -447,7 +447,6 @@ page_fault_handler(struct Trapframe *tf)
 	// Determine if: 1) faulting from a user exception or 2) directly from user program. 
 	if ((tf->tf_esp < UXSTACKTOP) && (tf->tf_esp >= UXSTACKTOP-PGSIZE)) {
 		// Fault from user exception handler	
-			
 		// Check validity of pointer, and update curenv to new user exception stack esp. 
 		uintptr_t next_esp = tf->tf_esp - sizeof(uint32_t) - sizeof(struct UTrapframe);
 		user_mem_assert(curenv, (void *) next_esp, sizeof(uint32_t) + sizeof(struct UTrapframe), PTE_U| PTE_W | PTE_P); 
@@ -461,7 +460,6 @@ page_fault_handler(struct Trapframe *tf)
 		
 	} else {
 		// Fault from user program
-		
 		// Check validity of pointer, and update curenv to new user exception stack esp. 
 		uintptr_t next_esp = UXSTACKTOP - sizeof(struct UTrapframe);
 		user_mem_assert(curenv, (void *) next_esp, sizeof(struct UTrapframe), PTE_U| PTE_W | PTE_P); 

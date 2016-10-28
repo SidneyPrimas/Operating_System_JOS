@@ -19,6 +19,8 @@ forkchild(const char *cur, char branch)
 		forktree(nxt);
 		exit();
 	}
+	
+	cprintf("next: %s \n", nxt); 
 }
 
 void

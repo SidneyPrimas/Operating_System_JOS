@@ -25,11 +25,10 @@ pgfault(struct UTrapframe *utf)
 	//   (see <inc/memlayout.h>).
 
 	// LAB 4: Your code here.
-	pte_t pte = uvpt[PGNUM((uintptr_t) addr)]; 
-	pde_t pde = uvpd[PDX((uintptr_t) addr)]; 
 	// Include extra checks that corresponding page is present. 
-	if ( !(pde & PTE_P) || !(pte & PTE_P) || ((pte & PTE_AVAIL) != PTE_COW)) {
-		panic("pgfault: Error in page-fault %x", pte);
+	// Need to be checked in order with directory first. 
+	if ( !(uvpd[PDX((uintptr_t) addr)] & PTE_P) || !(uvpt[PGNUM((uintptr_t) addr)] & PTE_P) || ((uvpt[PGNUM((uintptr_t) addr)] & PTE_AVAIL) != PTE_COW)) {
+		panic("pgfault: Error in page-fault %x", uvpt[PGNUM((uintptr_t) addr)]);
 	}
 	
 	if (!(err & FEC_WR)) {
@@ -82,9 +81,8 @@ duppage(envid_t envid, unsigned pn)
 	
 	void * addr = (void *) (pn * PGSIZE); 
 	
-	pte_t pte = uvpt[pn]; 
 	// If the entry is writable or COW, remap in parent and child to COW. 
-	if (((pte & PTE_W) == PTE_W) || ((pte & PTE_AVAIL) == PTE_COW)) {
+	if (((uvpt[pn] & PTE_W) == PTE_W) || ((uvpt[pn] & PTE_AVAIL) == PTE_COW)) {
 		// Takes the pte in the parents mapping and copies it over to the same pte in the child's mapping (mapped to the same physical address). 
 		if ((r = sys_page_map(0,  addr, envid, addr, PTE_P|PTE_U|PTE_COW)) < 0)
 			panic("duppage: sys_page_map: %e", r);
@@ -158,16 +156,18 @@ fork(void)
 	
 	// COPY OVER THE UVPT TO CHILD
 	// Using duppage, update map of each page below USTACKTOP in both child and parent. 
-	unsigned uxstacktop_pg = PGNUM(UXSTACKTOP); 
+	unsigned ustacktop_pg = PGNUM(USTACKTOP); 
 
 	unsigned pn; 
-	for (pn = 0; pn < uxstacktop_pg; pn++) {
+	for (pn = 0; pn < ustacktop_pg; pn++) {
 		
+		// We should awalys have access to the directory. 
 		pde_t pde = uvpd[PDX(pn<<PGSHIFT)]; 
 		// Check to make sure present (both the pte and pde)
 		if ((pde & PTE_P) && (uvpt[pn] & PTE_P)) {
-			// Sanity check: ensure in user-space. 
-			assert((uvpt[pn] & PTE_U) && (pde & PTE_U));
+			// Sanity check: ensure in user-space. Need to ensure these sequentially or will throw page fault since directory is not marked as user. 
+			assert(pde & PTE_U);
+			assert(uvpt[pn] & PTE_U);
 			
 			// As long as the pte is present, we map it. Figure out permissions in duppage. 
 			duppage(envid, pn); 
@@ -175,27 +175,22 @@ fork(void)
 		}
 	}
 	
+	
+	
+	
 	// HANDLE USER EXCEPTION STACK
-	// In the child, allocate a fresh page for the exception stack (that is a copy of the parents exceptions stack). 
-	// Create a page in the child environment for the exception stack. 
+	// In the child, allocate a fresh page for the exception stack (this is a blank page)
 	void * uxstack_bottom = (void *)(UXSTACKTOP-PGSIZE); 
 	if ((r = sys_page_alloc(envid, uxstack_bottom, PTE_P|PTE_U|PTE_W)) < 0)
 		panic("fork: sys_page_alloc: %e", r);
-	// In the parent environment, get access to the physical page that stores the child's user exception stack. 
-	/*
-	if ((r = sys_page_map(envid, uxstack_bottom, 0, UTEMP, PTE_P|PTE_U|PTE_W)) < 0)
-		panic("fork: sys_page_map: %e", r);
-	// In the parent's environment, copy the user exception stack physical page to the location where the child va points to. 
-	memmove(UTEMP, uxstack_bottom, PGSIZE);
-	// Remove the child's user exception stack from the parent's mapping. 
-	if ((r = sys_page_unmap(0, UTEMP)) < 0)
-		panic("fork: sys_page_unmap: %e", r);
-	*/
+		
+	
 	
 	//Important: Need to initialize the child's environment to use same entry point after user page fault. 
 	// This is an environmental variable that needs to be initialized. 
 	extern void _pgfault_upcall();
 	sys_env_set_pgfault_upcall(envid, _pgfault_upcall);
+	
 		
 	//Note: At this point, we have mapped the page tables and directory to the child. However, we have not created any of the new pages in the child. 
 	

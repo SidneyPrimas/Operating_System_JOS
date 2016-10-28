@@ -990,7 +990,8 @@ user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 		// 4) Handle case when correct permissions are not set. 
 		// We only check the permission bits that they request us to check. 
 		if ( (*pt_entry & (perm | PTE_P)) != (perm | PTE_P)) {
-			user_mem_check_addr = (uintptr_t) MAX(ROUNDDOWN(index_addr, PGSIZE), va_int); 
+			user_mem_check_addr = (uintptr_t) MAX(ROUNDDOWN(index_addr, PGSIZE), va_int);
+			cprintf("pt_entry: %x\n", *pt_entry); 
 			return -E_FAULT;
 		}
 		
