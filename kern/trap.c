@@ -1,6 +1,7 @@
 #include <inc/mmu.h>
 #include <inc/x86.h>
 #include <inc/assert.h>
+#include <inc/string.h>
 
 #include <kern/pmap.h>
 #include <kern/trap.h>
@@ -238,7 +239,8 @@ trap_dispatch(struct Trapframe *tf)
 	// For PGFL, route to page_fault_handler function. 
 	// For most other exceptions, just kill the user environment. 
 	if (tf->tf_trapno == T_PGFLT) {
-		cprintf("Page Fault Exception \n"); 
+		// ToDo: Debug
+		//cprintf("Page Fault Exception \n"); 
 		page_fault_handler(tf);
 		return; 
 	
@@ -251,7 +253,8 @@ trap_dispatch(struct Trapframe *tf)
 	}
 	
 	if (tf->tf_trapno == T_SYSCALL) {
-		cprintf("System Call Interrupt! \n");
+		//ToDo: Debug
+		//cprintf("System Call Interrupt! \n");
 		// Extract the arguments from the registers. 
 		// Right before the software interrupt was called, these registers were filled with the correct arguments by inline assembly. 
 		// When the int assembly instruction was called, we transferred these registers through the stack and into the tf variable. 
@@ -415,11 +418,72 @@ page_fault_handler(struct Trapframe *tf)
 	//   (the 'tf' variable points at 'curenv->env_tf').
 
 	// LAB 4: Your code here.
-
-	// Destroy the environment that caused the fault.
-	cprintf("[%08x] user fault va %08x ip %08x\n",
+	
+	// Kill env if no page fault upcall. 
+	if (!curenv->env_pgfault_upcall) {
+		// Destroy the environment that caused the fault.
+		cprintf("[%08x] user fault va %08x ip %08x\n",
 		curenv->env_id, fault_va, tf->tf_eip);
-	print_trapframe(tf);
-	env_destroy(curenv);
+		print_trapframe(tf);
+		env_destroy(curenv);	
+	} 
+	
+
+	
+	// Setup the exception stack frame
+	// Save the trap-time values in UTrapframe.
+	struct UTrapframe utf; 
+	// fault_va is va that caused page fault (from rcr2)
+	utf.utf_fault_va =   fault_va;
+	// Save all the trap time values
+	utf.utf_err = tf->tf_err; // ToDo: error code might not be the trap-time value. 
+	utf.utf_regs = tf->tf_regs; 
+	utf.utf_eip = tf->tf_eip; 
+	utf.utf_eflags = tf->tf_eflags; 
+	// Since will artificially add a return eip to jump back to code location where exception was called, need to decrement esp by single position. 
+	utf.utf_esp = tf->tf_esp;
+	
+	
+	// Determine if: 1) faulting from a user exception or 2) directly from user program. 
+	if ((tf->tf_esp < UXSTACKTOP) && (tf->tf_esp >= UXSTACKTOP-PGSIZE)) {
+		// Fault from user exception handler	
+			
+		// Check validity of pointer, and update curenv to new user exception stack esp. 
+		uintptr_t next_esp = tf->tf_esp - sizeof(uint32_t) - sizeof(struct UTrapframe);
+		user_mem_assert(curenv, (void *) next_esp, sizeof(uint32_t) + sizeof(struct UTrapframe), PTE_U| PTE_W | PTE_P); 
+	
+		// Move 32-bit empty word, and then struct UTrapframe
+		uint32_t empty_word = 0; 
+		memcpy((void *) tf->tf_esp - sizeof(uint32_t), &empty_word , sizeof(uint32_t));
+		memcpy((void *) (next_esp), &utf , sizeof(struct UTrapframe));
+		curenv->env_tf.tf_esp = next_esp; 
+		
+		
+	} else {
+		// Fault from user program
+		
+		// Check validity of pointer, and update curenv to new user exception stack esp. 
+		uintptr_t next_esp = UXSTACKTOP - sizeof(struct UTrapframe);
+		user_mem_assert(curenv, (void *) next_esp, sizeof(struct UTrapframe), PTE_U| PTE_W | PTE_P); 
+		
+		
+		// Move utf to the beginning of user exception stack. memcpy puts utf in memory in the correct order. 
+		memcpy((void *) (next_esp), &utf,  sizeof(struct UTrapframe));
+		// Update curenv to new user exception stack esp
+		curenv->env_tf.tf_esp = next_esp; 
+	}
+	
+	
+	
+	// Update curenv to run user page fault handler 
+	// When reunning env_run, the stackframe will be setup with env_tf in curenv. So, the user environment will run at eip with esp stack pointer. 
+	curenv->env_tf.tf_eip = (uintptr_t) curenv->env_pgfault_upcall; 
+	
+	// Run environment curenv with updated stack and updated eip  
+	env_run(curenv); 
+	
+
+	// Should not return from env_run. If we do, panic
+	panic("page_fault_handler: Returned from function after env_run. Should  not return. \n");
 }
 

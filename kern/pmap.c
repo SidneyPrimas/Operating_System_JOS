@@ -682,7 +682,8 @@ boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm
 		*pt_entry = PTE_ADDR(pa + i*PGSIZE) | perm | PTE_P; 
 	}
 	
-	cprintf("Completed mapping VA %x to PA %x using boot_mapp_region. \n", va, pa);
+	// ToDo: Debug
+	//cprintf("Completed mapping VA %x to PA %x using boot_mapp_region. \n", va, pa);
 	
 }
 
@@ -726,7 +727,8 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 	
 	// Increment pp_ref. We increment first to handle the corner case. Essentially, we want to avoid freeing before inserting. 
 	if (pp->pp_ref > 0) {
-		warn("page_insert: Inserted a page that is referenced somewhere else.\n");
+		//ToDo: Debug
+		//warn("page_insert: Inserted a page that is referenced somewhere else.\n");
 	}
 	
 	pp->pp_ref += 1;
