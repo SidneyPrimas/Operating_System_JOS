@@ -131,6 +131,9 @@ env_init(void)
 		envs[index].env_link = env_free_list;
 		env_free_list = &envs[index];
 		
+		// Default is minimal priority. 
+		envs[index].env_priority = P3; 
+		
 	}
 	
 
@@ -248,6 +251,8 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 	e->env_type = ENV_TYPE_USER;
 	e->env_status = ENV_RUNNABLE;
 	e->env_runs = 0;
+	
+	e->env_priority = P3; 
 
 	// Clear out all the saved register state,
 	// to prevent the register values
