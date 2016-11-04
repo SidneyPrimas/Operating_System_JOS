@@ -27,7 +27,6 @@ sys_cputs(const char *s, size_t len)
 	int r;
 	struct Env *e;
 	// Gets a pointer to the environment basedin envid from curenv (the one we are currently in). 
-	// Can use curenv->env_id since we only have a single environment for now. And, we have the same page direcotry in this enviornment.
 	// Anoother possibility to use curenv: A single environment always has both a kernel and a user space. The user always kicks the interrupt into the kernel from the same environment. 
 	if ((r = envid2env(curenv->env_id, &e, 1)) < 0) {
 		panic("sys_cputs: Correct environment cannot be found. Error: %e \n", r);
@@ -401,7 +400,71 @@ static int
 sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 {
 	// LAB 4: Your code here.
-	panic("sys_ipc_try_send not implemented");
+	//Get the env structure for envid. 
+	struct Env *env_target;
+	int error; 
+	
+	// Get the struct for the target environment. Do not check any permissinos. 
+	if ((error = envid2env(envid, &env_target, 0)) <0) { 
+		return error; 
+	}
+	
+	// If the target environment isn't receiving, return error.
+	if (!env_target->env_ipc_recving) {
+		return -E_IPC_NOT_RECV; 
+	}
+	
+	// Initialize perm to 0. Assume that page isn't sent. Update below as necessary. 
+	env_target->env_ipc_perm = 0; 
+	
+	// Determine if we are sending a page. If we are, make appropriate checks, and then remap page at srcva to dstva.  
+	uintptr_t srcva_int = (uintptr_t) srcva; 
+	if ((srcva_int < UTOP) && ((uintptr_t) env_target->env_ipc_dstva < UTOP)) {
+	
+		// Return error if not page-aligned
+		if (srcva_int%PGSIZE != 0 ) {
+			return -E_INVAL; 
+		}
+	
+		// Checking basic permissions
+		if (((perm & ~PTE_SYSCALL) != 0) || ((perm & (PTE_U | PTE_P)) != (PTE_U | PTE_P))) {
+			return -E_INVAL;
+		} 
+	
+		pte_t *pte_src; 
+		struct PageInfo * page_src = page_lookup(curenv->env_pgdir, srcva, &pte_src); 
+		if (page_src == NULL) {
+		 return -E_INVAL; 
+		}
+	
+		// Checking write permissions on srce if user designates write permissions on send.  
+		if (!(*pte_src & PTE_W)) {
+			if (perm & PTE_W) {
+				return -E_INVAL; 
+			}
+		}
+
+		error = page_insert(env_target->env_pgdir, page_src, env_target->env_ipc_dstva, perm); 
+		if (error < 0) {
+			return error; 
+		}
+		
+		//If sending the page was successful, make sure the pass the page permissions through the env structure. .  
+		env_target->env_ipc_perm = perm;
+	}
+	
+	
+	// Send succeeds, and update target's ipc fields
+	env_target->env_ipc_recving = 0; 
+	env_target->env_ipc_from = curenv->env_id; 
+	env_target->env_ipc_value = value; 
+	env_target->env_status = ENV_RUNNABLE; 
+	// Since sys_ipc_recv function never returns, we tell environment that the function was a success (through kernel control). 
+	env_target->env_tf.tf_regs.reg_eax = 0; 
+	
+	// Success of sys_ipc_try_send. 
+	return 0; 
+	
 }
 
 // Block until a value is ready.  Record that you want to receive
@@ -419,8 +482,32 @@ static int
 sys_ipc_recv(void *dstva)
 {
 	// LAB 4: Your code here.
-	panic("sys_ipc_recv not implemented");
-	return 0;
+	
+	int r;
+	struct Env *e;
+	// Gets a pointer to the environment based on envid from curenv (the one we are currently in). 
+	// This is done for extra sanity checks. More direct option is to use curenv directly. 
+	if ((r = envid2env(curenv->env_id, &e, 1)) < 0) {
+		panic("sys_ipc_recv: Current environment cannot be found. Error: %e \n", r);
+	}
+	
+	// Check for dstva page-align error. 
+	uintptr_t dstva_int = (uintptr_t) dstva; 
+	if ((dstva_int < UTOP) && (dstva_int%PGSIZE != 0)) {
+		warn("sys_ipc_recv: Va used to send page is below UTOP, but not page aligned");
+		return -E_INVAL;
+	}
+	
+	curenv->env_ipc_recving = 1; 
+	// Indicate to sender where to map page to e sent. 
+	curenv->env_ipc_dstva = dstva;
+	// Mark as not runnable (block until receive the message). 
+	curenv->env_status = ENV_NOT_RUNNABLE; 
+	// Give up the CPU (to allw message to be sent to this CPU). 
+	sched_yield();
+	
+	panic("The sys_ipc_recv function should not return on success (only on error). \n");
+	return -100; 
 }
 
 // Dispatches to the correct kernel function, passing the arguments.

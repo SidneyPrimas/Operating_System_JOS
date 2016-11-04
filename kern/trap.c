@@ -94,6 +94,22 @@ trap_init(void)
 	void thandler17();
 	void thandler18();
 	void thandler19();
+	void thandler32();
+	void thandler33();
+	void thandler34();
+	void thandler35();
+	void thandler36();
+	void thandler37();
+	void thandler38();
+	void thandler39();
+	void thandler40();
+	void thandler41();
+	void thandler42();
+	void thandler43();
+	void thandler44();
+	void thandler45();
+	void thandler46();
+	void thandler47();
 	void thandler48();
 	
 	//Setup the IDT (Inrerrupt/Trap Gate Descriptor Table))using the SETGATE macro.
@@ -104,29 +120,52 @@ trap_init(void)
 	// sel = GD_KT: Sets the code segment selector. Allows us to access the .text in kernel. If we are routing to a user functin, use GD_UT. 
 	// off = function address: The offset should be the function address (a 32-bit address put in offset(31-16) and offset(15-0))
 	// dpl = 0: Since we are handling built-in exceptions, we require the maximum privilege level
-	SETGATE(idt[0], 0, GD_KT, &thandler0, 0);
-	SETGATE(idt[1], 0, GD_KT, &thandler1, 3);
-	SETGATE(idt[2], 0, GD_KT, &thandler2, 0);
+	SETGATE(idt[T_DIVIDE], 0, GD_KT, &thandler0, 0);
+	SETGATE(idt[T_DEBUG], 0, GD_KT, &thandler1, 3);
+	SETGATE(idt[T_NMI], 0, GD_KT, &thandler2, 0);
 	// Vector 3 is the breakpoint interrupt. Most other interrupts will be called by instructions in kernel space. We essentially don't want to allow a user to call these interrupts directly. 
 	// However, the breakpoint interrupt is callable within the user space. Thus, we must indicate this in the gate, or the hardware will through a general protection fault. 
-	SETGATE(idt[3], 0, GD_KT, &thandler3, 3);
-	SETGATE(idt[4], 0, GD_KT, &thandler4, 0);
-	SETGATE(idt[5], 0, GD_KT, &thandler5, 0);
-	SETGATE(idt[6], 0, GD_KT, &thandler6, 0);
-	SETGATE(idt[7], 0, GD_KT, &thandler7, 0);
-	SETGATE(idt[8], 0, GD_KT, &thandler8, 0);
-	SETGATE(idt[10], 0, GD_KT, &thandler10, 0);
-	SETGATE(idt[11], 0, GD_KT, &thandler11, 0);
-	SETGATE(idt[12], 0, GD_KT, &thandler12, 0);
-	SETGATE(idt[13], 0, GD_KT, &thandler13, 0);
-	SETGATE(idt[14], 0, GD_KT, &thandler14, 0);
-	SETGATE(idt[16], 0, GD_KT, &thandler16, 0);
-	SETGATE(idt[17], 0, GD_KT, &thandler17, 0);
-	SETGATE(idt[18], 0, GD_KT, &thandler18, 0);
-	SETGATE(idt[19], 0, GD_KT, &thandler19, 0);
+	SETGATE(idt[T_BRKPT], 0, GD_KT, &thandler3, 3);
+	SETGATE(idt[T_OFLOW ], 0, GD_KT, &thandler4, 0);
+	SETGATE(idt[T_BOUND], 0, GD_KT, &thandler5, 0);
+	SETGATE(idt[T_ILLOP], 0, GD_KT, &thandler6, 0);
+	SETGATE(idt[T_DEVICE], 0, GD_KT, &thandler7, 0);
+	SETGATE(idt[T_DBLFLT], 0, GD_KT, &thandler8, 0);
+	SETGATE(idt[T_TSS], 0, GD_KT, &thandler10, 0);
+	SETGATE(idt[T_SEGNP], 0, GD_KT, &thandler11, 0);
+	SETGATE(idt[T_STACK], 0, GD_KT, &thandler12, 0);
+	SETGATE(idt[T_GPFLT], 0, GD_KT, &thandler13, 0);
+	SETGATE(idt[T_PGFLT], 0, GD_KT, &thandler14, 0);
+	SETGATE(idt[T_FPERR], 0, GD_KT, &thandler16, 0);
+	SETGATE(idt[T_ALIGN], 0, GD_KT, &thandler17, 0);
+	SETGATE(idt[T_MCHK], 0, GD_KT, &thandler18, 0);
+	SETGATE(idt[T_SIMDERR], 0, GD_KT, &thandler19, 0);
+	
+	// Initialize the interrupt descriptor table with the 16 IRQ (hardware interrupts).
+	// istrap = 0: Disables interrupts in interrupt handler through IF flag. When leaving interrupt handler in kernel, we restore the previous eflag state that is now on the stack. 
+	// GD_KT: Set segment selector to kernel since code will be run in kernel. 
+	// dpl = 0: Users cannot explicitly make these IRQ calls via code. 
+	SETGATE(idt[IRQ_OFFSET + IRQ_TIMER], 0, GD_KT, &thandler32, 0);
+	SETGATE(idt[IRQ_OFFSET + IRQ_KBD], 0, GD_KT, &thandler33, 0);
+	SETGATE(idt[IRQ_OFFSET + 2], 0, GD_KT, &thandler34, 0);
+	SETGATE(idt[IRQ_OFFSET + 3], 0, GD_KT, &thandler35, 0);
+	SETGATE(idt[IRQ_OFFSET + IRQ_SERIAL], 0, GD_KT, &thandler36, 0);
+	SETGATE(idt[IRQ_OFFSET + 5], 0, GD_KT, &thandler37, 0);
+	SETGATE(idt[IRQ_OFFSET + 6], 0, GD_KT, &thandler38, 0);
+	SETGATE(idt[IRQ_OFFSET + IRQ_SPURIOUS], 0, GD_KT, &thandler39, 0);
+	SETGATE(idt[IRQ_OFFSET + 8], 0, GD_KT, &thandler40, 0);
+	SETGATE(idt[IRQ_OFFSET + 9], 0, GD_KT, &thandler41, 0);
+	SETGATE(idt[IRQ_OFFSET + 10], 0, GD_KT, &thandler42, 0);
+	SETGATE(idt[IRQ_OFFSET + 11], 0, GD_KT, &thandler43, 0);
+	SETGATE(idt[IRQ_OFFSET + 12], 0, GD_KT, &thandler44, 0);
+	SETGATE(idt[IRQ_OFFSET + 13], 0, GD_KT, &thandler45, 0);
+	SETGATE(idt[IRQ_OFFSET + IRQ_IDE], 0, GD_KT, &thandler46, 0);
+	SETGATE(idt[IRQ_OFFSET + 15], 0, GD_KT, &thandler47, 0);
+	
 	// Initialize the interrupt diescriptor to use vector 48 to handle system calls. Since system calls can be produced by user programs, set the DPL to 3. 
 	// Essentially, this is a software interrupt. 
-	SETGATE(idt[48], 0, GD_KT, &thandler48, 3);
+	SETGATE(idt[T_SYSCALL], 0, GD_KT, &thandler48, 3); 
+	
 
 	// Per-CPU setup 
 	trap_init_percpu();
@@ -270,6 +309,7 @@ trap_dispatch(struct Trapframe *tf)
 		return;
 	
 	}
+	
 
 	// Handle spurious interrupts
 	// The hardware sometimes raises these because of noise on the
@@ -279,10 +319,27 @@ trap_dispatch(struct Trapframe *tf)
 		print_trapframe(tf);
 		return;
 	}
+	
+
 
 	// Handle clock interrupts. Don't forget to acknowledge the
 	// interrupt using lapic_eoi() before calling the scheduler!
 	// LAB 4: Your code here.
+	
+	
+	if (tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER) {
+		// ToDo: Debug
+		//cprintf("Timer Interrupt \n"); 
+		lapic_eoi(); 
+		sched_yield();
+	}
+	
+	// Handle interrupts that we don't excplicitly handle yet. 
+	if (tf->tf_trapno > IRQ_OFFSET && tf->tf_trapno <= (IRQ_OFFSET + 15)) {
+		cprintf("Interrupt caught without explicit routing. \n");
+		print_trapframe(tf);
+		return;
+	}
 
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);

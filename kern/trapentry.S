@@ -57,25 +57,46 @@
  	 * Each name is a handler fuction that pushes us to _alltraps and traps after setting up the stack. 
  	 * Also, pushes number (wich is the interrupt vetor) onto the stack, which allows us to retreive it later (to jump into IDT). 
  	 */
-	TRAPHANDLER_NOEC(thandler0, 0);
-	TRAPHANDLER_NOEC(thandler1, 1);
-	TRAPHANDLER_NOEC(thandler2, 2);
-	TRAPHANDLER_NOEC(thandler3, 3);
-	TRAPHANDLER_NOEC(thandler4, 4);
-	TRAPHANDLER_NOEC(thandler5, 5);
-	TRAPHANDLER_NOEC(thandler6, 6);
-	TRAPHANDLER_NOEC(thandler7, 7);
-	TRAPHANDLER(thandler8, 8);
-	TRAPHANDLER(thandler10, 10);
-	TRAPHANDLER(thandler11, 11);
-	TRAPHANDLER(thandler12, 12);
-	TRAPHANDLER(thandler13, 13);
-	TRAPHANDLER(thandler14, 14);
-	TRAPHANDLER_NOEC(thandler16, 16);
-	TRAPHANDLER(thandler17, 17);
-	TRAPHANDLER_NOEC(thandler18, 18);
-	TRAPHANDLER_NOEC(thandler19, 19);
-	TRAPHANDLER_NOEC(thandler48, 48);
+	TRAPHANDLER_NOEC(thandler0, T_DIVIDE);
+	TRAPHANDLER_NOEC(thandler1, T_DEBUG);
+	TRAPHANDLER_NOEC(thandler2, T_NMI);
+	TRAPHANDLER_NOEC(thandler3, T_BRKPT);
+	TRAPHANDLER_NOEC(thandler4, T_OFLOW);
+	TRAPHANDLER_NOEC(thandler5, T_BOUND);
+	TRAPHANDLER_NOEC(thandler6, T_ILLOP);
+	TRAPHANDLER_NOEC(thandler7, T_DEVICE);
+	TRAPHANDLER(thandler8, T_DBLFLT);
+	TRAPHANDLER(thandler10, T_TSS);
+	TRAPHANDLER(thandler11, T_SEGNP);
+	TRAPHANDLER(thandler12, T_STACK);
+	TRAPHANDLER(thandler13, T_GPFLT);
+	TRAPHANDLER(thandler14, T_PGFLT);
+	TRAPHANDLER_NOEC(thandler16, T_FPERR);
+	TRAPHANDLER(thandler17, T_ALIGN);
+	TRAPHANDLER_NOEC(thandler18, T_MCHK);
+	TRAPHANDLER_NOEC(thandler19, T_SIMDERR);
+	
+	// Interrupt handler (for 16 hardware interrupts from 32 to 47.) 
+	// None of these have error codes. 
+	TRAPHANDLER_NOEC(thandler32, IRQ_OFFSET + IRQ_TIMER);
+	TRAPHANDLER_NOEC(thandler33, IRQ_OFFSET + IRQ_KBD);
+	TRAPHANDLER_NOEC(thandler34, IRQ_OFFSET + 2);
+	TRAPHANDLER_NOEC(thandler35, IRQ_OFFSET + 3);
+	TRAPHANDLER_NOEC(thandler36, IRQ_OFFSET + IRQ_SERIAL);
+	TRAPHANDLER_NOEC(thandler37, IRQ_OFFSET + 5);
+	TRAPHANDLER_NOEC(thandler38, IRQ_OFFSET + 6);
+	TRAPHANDLER_NOEC(thandler39, IRQ_OFFSET + IRQ_SPURIOUS);
+	TRAPHANDLER_NOEC(thandler40, IRQ_OFFSET + 8);
+	TRAPHANDLER_NOEC(thandler41, IRQ_OFFSET + 9);
+	TRAPHANDLER_NOEC(thandler42, IRQ_OFFSET + 10);
+	TRAPHANDLER_NOEC(thandler43, IRQ_OFFSET + 11);
+	TRAPHANDLER_NOEC(thandler44, IRQ_OFFSET + 12);
+	TRAPHANDLER_NOEC(thandler45, IRQ_OFFSET + 13);
+	TRAPHANDLER_NOEC(thandler46, IRQ_OFFSET + IRQ_IDE);
+	TRAPHANDLER_NOEC(thandler47, IRQ_OFFSET + 15);
+	
+	//System call trap. 
+	TRAPHANDLER_NOEC(thandler48, T_SYSCALL);
 
 
 /*

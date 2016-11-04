@@ -142,7 +142,8 @@ fork(void)
 	envid = sys_exofork();
 
 	if (envid < 0)
-		panic("sys_exofork in forkc.: %d", envid);
+		// If sys_exofork has no free environments or no memory, return the error form sys_exofork. 
+		return envid; 
 	if (envid == 0) {
 		// We're the child.
 		// The copied value of the global variable 'thisenv'
