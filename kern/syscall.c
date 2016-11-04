@@ -511,7 +511,7 @@ sys_ipc_recv(void *dstva)
 }
 
 static int
-sys_change_priority(envid_t envid, int priority)
+sys_change_priority(int priority)
 {
 	struct Env *env_target;
 	int error; 
@@ -521,12 +521,7 @@ sys_change_priority(envid_t envid, int priority)
 		return -E_INVAL; 
 	}
 	
-	// Get the struct for the target environment. Do not check any permissinos. 
-	if ((error = envid2env(envid, &env_target, 0)) <0) { 
-		return error; 
-	}
-	
-	env_target->env_priority = priority; 
+	curenv->env_priority = priority; 
 	
 	return 0; 
 }
@@ -570,7 +565,7 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		case SYS_ipc_recv : 			
 			return sys_ipc_recv((void *) a1);
 		case SYS_change_priority : 
-			return sys_change_priority((envid_t) a1, (int) a2);  
+			return sys_change_priority((int) a2);  
 
 		default:
 			return -E_INVAL;

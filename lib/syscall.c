@@ -112,8 +112,8 @@ sys_ipc_recv(void *dstva)
 }
 
 int
-sys_change_priority(envid_t envid, int priority)
+sys_change_priority(int priority)
 {
-	return syscall(SYS_change_priority, 2, envid, priority, 0, 0, 0);
+	return syscall(SYS_change_priority, 1, priority, 0, 0, 0, 0);
 }
 
