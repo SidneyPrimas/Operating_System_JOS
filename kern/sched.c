@@ -5,8 +5,13 @@
 #include <kern/pmap.h>
 #include <kern/monitor.h>
 
+//#define CHALLENGE4
+
 void sched_halt(void);
 
+
+// Challenge4 Implmeneted
+#ifdef CHALLENGE4
 // Choose a user environment to run and run it.
 void
 sched_yield(void)
@@ -75,6 +80,70 @@ sched_yield(void)
 	// sched_halt never returns
 	sched_halt();
 }
+
+#endif /* CHALLENGE4 Implemented */
+
+
+// CHALLENGE4 Not Implemented
+#ifndef CHALLENGE4
+
+// Choose a user environment to run and run it.
+void
+sched_yield(void)
+{
+	struct Env *idle;
+
+	// Implement simple round-robin scheduling.
+	//
+	// Search through 'envs' for an ENV_RUNNABLE environment in
+	// circular fashion starting just after the env this CPU was
+	// last running.  Switch to the first such environment found.
+	//
+	// If no envs are runnable, but the environment previously
+	// running on this CPU is still ENV_RUNNING, it's okay to
+	// choose that environment.
+	//
+	// Never choose an environment that's currently running on
+	// another CPU (env_status == ENV_RUNNING). If there are
+	// no runnable environments, simply drop through to the code
+	// below to halt the cpu.
+
+	// LAB 4: Your code here.
+	
+	// Set initial to beginning of envs array or just after previously running env. 
+	uint32_t initial = !curenv ? 0: ENVX(curenv->env_id) + 1;
+	// i i
+	size_t i; 
+	// Initiate round-robin at next env after the one current running.  
+	for (i = initial;; i++) {
+	
+	
+	// If we have looped through all environments back to one past previously running environment:  1) check if it's running and run it, or 2) break out of loop and call sched_halt()
+		if ((i >= NENV) && (i%NENV == initial)) {
+		
+			// Check the previously running environment (in previous position). Run it when:  1) check if we still can run it, and 2) make sure it's actually the same environment. 
+			if ((curenv != NULL) && (curenv->env_status == ENV_RUNNING) && (envs[(i-1)%NENV].env_id == curenv->env_id)) {
+				env_run(curenv);
+			}
+			
+			cprintf("shed_yield: No RUNNABLE environments found \n");
+			break; 
+		}
+	
+	
+		// If we found a runnable environemnt, call env_run (which will set the previously running environment to runnable and then run the new environment). 
+		if (envs[i%NENV].env_status == ENV_RUNNABLE) {
+			env_run(&envs[i%NENV]);
+		}
+		
+	}
+	
+
+	// sched_halt never returns
+	sched_halt();
+}
+
+#endif /* CHALLENGE4 Not Implemented */
 
 // Halt this CPU when there is nothing to do. Wait until the
 // timer interrupt wakes it up. This function never returns.

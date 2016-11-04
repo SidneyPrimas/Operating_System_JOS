@@ -513,7 +513,6 @@ sys_ipc_recv(void *dstva)
 static int
 sys_change_priority(int priority)
 {
-	struct Env *env_target;
 	int error; 
 	
 	// Check to make sure correct priority range was sent. 
@@ -565,7 +564,7 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		case SYS_ipc_recv : 			
 			return sys_ipc_recv((void *) a1);
 		case SYS_change_priority : 
-			return sys_change_priority((int) a2);  
+			return sys_change_priority((int) a1);  
 
 		default:
 			return -E_INVAL;
