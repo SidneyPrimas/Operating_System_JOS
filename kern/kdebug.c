@@ -142,6 +142,13 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 		// Make sure this memory is valid.
 		// Return -1 if it is not.  Hint: Call user_mem_check.
 		// LAB 3: Your code here.
+		
+		// Environment is used to find the page directory. 
+		// In this debug mode, we are bouncing between kernel and user in the same environment. 
+		if (user_mem_check(curenv, usd, sizeof(struct UserStabData), PTE_P | PTE_U) < 0) {
+			cprintf("debuginfo_eip: usd struct is not a valid memory address. \n");
+			return -1; 
+		}
 
 		stabs = usd->stabs;
 		stab_end = usd->stab_end;
@@ -150,6 +157,14 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 
 		// Make sure the STABS and string table memory is valid.
 		// LAB 3: Your code here.
+		if (user_mem_check(curenv, stabs, stab_end - stabs + 1,  PTE_P | PTE_U) < 0) {
+			cprintf("debuginfo_eip: stab array is not a valid memory address. \n");
+			return -1; 
+		}
+		if (user_mem_check(curenv, stabstr, stabstr_end - stabstr + 1, PTE_P | PTE_U) < 0) {
+			cprintf("debuginfo_eip: stabstr array not a valid memory address. \n");
+			return -1; 
+		}
 	}
 
 	// String table validity checks
@@ -165,6 +180,7 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 	lfile = 0;
 	rfile = (stab_end - stabs) - 1;
 	stab_binsearch(stabs, &lfile, &rfile, N_SO, addr);
+	
 	if (lfile == 0)
 		return -1;
 
@@ -172,6 +188,7 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 	// (N_FUN).
 	lfun = lfile;
 	rfun = rfile;
+	
 	stab_binsearch(stabs, &lfun, &rfun, N_FUN, addr);
 
 	if (lfun <= rfun) {
@@ -204,6 +221,16 @@ debuginfo_eip(uintptr_t addr, struct Eipdebuginfo *info)
 	//	Look at the STABS documentation and <inc/stab.h> to find
 	//	which one.
 	// Your code here.
+
+
+	stab_binsearch(stabs, &lline, &rline, N_SLINE, addr);
+	
+	if (lline > rline) {
+		return -1;
+	}
+	
+	info->eip_line = stabs[lline].n_desc;
+	
 
 
 	// Search backwards from the line number for the relevant filename

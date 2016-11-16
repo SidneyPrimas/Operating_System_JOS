@@ -32,8 +32,6 @@ i386_init(void)
 	// Can't call cprintf until after we do this!
 	cons_init();
 
-	cprintf("6828 decimal is %o octal!\n", 6828);
-
 	// Lab 2 memory management initialization functions
 	mem_init();
 
@@ -50,7 +48,10 @@ i386_init(void)
 
 	// Acquire the big kernel lock before waking up APs
 	// Your code here:
-
+	
+	// Lock the kernel before the BSP wakes up the CPUs
+	// Ensures that non of the CPUs will execute common kernel code until all the CPUs have been started. 
+	lock_kernel();
 	// Starting non-boot CPUs
 	boot_aps();
 
@@ -63,6 +64,7 @@ i386_init(void)
 #else
 	// Touch all you want.
 	ENV_CREATE(user_icode, ENV_TYPE_USER);
+
 #endif // TEST*
 
 	// Should not be necessary - drains keyboard because interrupt has given up.
@@ -116,15 +118,19 @@ mp_main(void)
 	env_init_percpu();
 	trap_init_percpu();
 	xchg(&thiscpu->cpu_status, CPU_STARTED); // tell boot_aps() we're up
+	
 
 	// Now that we have finished some basic setup, call sched_yield()
 	// to start running processes on this CPU.  But make sure that
 	// only one CPU can enter the scheduler at a time!
 	//
 	// Your code here:
-
+	// Need the lock because yield will indicate that the kernel can run common kernel code. 
+	lock_kernel();
+	sched_yield();
+	
 	// Remove this after you finish Exercise 4
-	for (;;);
+	//for (;;);
 }
 
 /*

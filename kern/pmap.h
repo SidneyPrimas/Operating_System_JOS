@@ -68,6 +68,9 @@ void *	mmio_map_region(physaddr_t pa, size_t size);
 int	user_mem_check(struct Env *env, const void *va, size_t len, int perm);
 void	user_mem_assert(struct Env *env, const void *va, size_t len, int perm);
 
+// pp is a pointer to a page. 
+// pages is a pointer to the beginning of the pages array
+// << PGSHIFT multiples the value by PGSIZE. 
 static inline physaddr_t
 page2pa(struct PageInfo *pp)
 {
@@ -82,6 +85,7 @@ pa2page(physaddr_t pa)
 	return &pages[PGNUM(pa)];
 }
 
+// Returns the virtual kernel address of the pointer to a PageInfo given the pointer pp of pages linked list. 
 static inline void*
 page2kva(struct PageInfo *pp)
 {
