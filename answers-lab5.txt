@@ -1,1 +1,2 @@
-Questions/Answers
+1) Other then altering the eFlags register when creating the FS environment, no additional changes are needed. The reason for this is that whenever we change environments, the environments registers (including the eFlags register) state is saved in the env struct, which is stored within the envs[] array. When we restore this environment in the future, the eFlags register will be restored within the x86 hardware, thus enabling the IO instructions. When non-FS environments are restored, their respective eFlag register is restored, which will revert the privilege level back to IO instructions being disabled. 
+

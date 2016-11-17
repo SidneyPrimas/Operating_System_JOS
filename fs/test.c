@@ -21,6 +21,7 @@ fs_test(void)
 	// allocate block
 	if ((r = alloc_block()) < 0)
 		panic("alloc_block: %e", r);
+
 	// check that block was free
 	assert(bits[r/32] & (1 << (r%32)));
 	// and is not free any more

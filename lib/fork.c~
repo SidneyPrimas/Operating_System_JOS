@@ -142,7 +142,7 @@ fork(void)
 	envid = sys_exofork();
 
 	if (envid < 0)
-		// If sys_exofork
+		// If sys_exofork has no free environments or no memory, return the error form sys_exofork. 
 		return envid; 
 	if (envid == 0) {
 		// We're the child.
