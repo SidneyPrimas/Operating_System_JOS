@@ -334,15 +334,30 @@ trap_dispatch(struct Trapframe *tf)
 		sched_yield();
 	}
 	
+	// Handle keyboard and serial interrupts.
+	// LAB 5: Your code here.
+	
+	if (tf->tf_trapno == IRQ_OFFSET + IRQ_KBD) {
+		// ToDo: Debug
+		//cprintf("Console interrupt \n"); 
+		kbd_intr(); 
+		return; 
+	}
+	
+	if (tf->tf_trapno == IRQ_OFFSET + IRQ_SERIAL) {
+		// ToDo: Debug
+		//cprintf("Serial Interrupt \n"); 
+		serial_intr(); 
+		return; 
+	}
+	
+	
 	// Handle interrupts that we don't excplicitly handle yet. 
 	if (tf->tf_trapno > IRQ_OFFSET && tf->tf_trapno <= (IRQ_OFFSET + 15)) {
 		cprintf("Interrupt caught without explicit routing. \n");
 		print_trapframe(tf);
 		return;
 	}
-
-	// Handle keyboard and serial interrupts.
-	// LAB 5: Your code here.
 
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);

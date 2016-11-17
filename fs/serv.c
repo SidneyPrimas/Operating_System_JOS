@@ -217,6 +217,7 @@ serve_read(envid_t envid, union Fsipc *ipc)
 	ssize_t n_read; 
 	struct OpenFile *o;
 	int r; 
+	size_t n_to_read = req->req_n;
 	
 	// First, use openfile_lookup to find the relevant open file.
 	// On failure, return the error code to the client with ipc_send.
@@ -226,9 +227,12 @@ serve_read(envid_t envid, union Fsipc *ipc)
 	// Second, call the relevant file system function (from fs/fs.c).
 	// On failure, return the error code to the client.
 	// Ensure that not requesting more than a single page. 
-	assert(req->req_n <= PGSIZE); 
+
+	if (req->req_n > PGSIZE) {
+		n_to_read = PGSIZE; 
+	}
 	// Read req_n bytes into ret_buf. 
-	if ((n_read = file_read(o->o_file, ret->ret_buf, req->req_n, o->o_fd->fd_offset)) < 0 ) 
+	if ((n_read = file_read(o->o_file, ret->ret_buf, n_to_read, o->o_fd->fd_offset)) < 0 ) 
 		return n_read;
 	
 	// The file descriptor keeps track of the offset for this file. Update it. 
@@ -250,7 +254,7 @@ serve_write(envid_t envid, struct Fsreq_write *req)
 	// LAB 5: Your code here.
 	struct OpenFile *o;
 	int r; 
-	ssize_t n_write; 
+	int n_write; 
 	
 	// First, use openfile_lookup to find the relevant open file.
 	// On failure, return the error code to the client with ipc_send.
@@ -261,6 +265,8 @@ serve_write(envid_t envid, struct Fsreq_write *req)
 	// On failure, return the error code to the client.
 	// Ensure that not requesting to write more data than sent. 
 	assert(req->req_n <= PGSIZE - (sizeof(int) + sizeof(size_t))); 
+
+	
 	// Read req_n bytes into ret_buf. 
 	if ((n_write = file_write(o->o_file, req->req_buf, req->req_n, o->o_fd->fd_offset)) < 0 ) 
 		return n_write;

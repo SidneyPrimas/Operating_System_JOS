@@ -142,13 +142,20 @@ devfile_write(struct Fd *fd, const void *buf, size_t n)
 	// bytes than requested.
 	// LAB 5: Your code here
 	int r;
+	size_t n_to_write = n; 
+	
+	if (n_to_write > PGSIZE - (sizeof(int) + sizeof(size_t))) {
+		n_to_write = PGSIZE - (sizeof(int) + sizeof(size_t)); 
+	}
 
 	fsipcbuf.write.req_fileid = fd->fd_file.id;
-	fsipcbuf.write.req_n = n;
+	fsipcbuf.write.req_n = n_to_write;
 	// Need to move memory from *buf into *req_buf since the fsipcbuf is shared page. 
-	memmove(fsipcbuf.write.req_buf, buf, n);
+	memmove(fsipcbuf.write.req_buf, buf, n_to_write);
 	if ((r = fsipc(FSREQ_WRITE, NULL)) < 0)
 		return r;
+		
+		
 	assert(r <= n);
 	assert(r <= PGSIZE - (sizeof(int) + sizeof(size_t)));
 	return r;

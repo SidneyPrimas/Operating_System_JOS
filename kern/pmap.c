@@ -840,7 +840,8 @@ page_remove(pde_t *pgdir, void *va)
 	
 	// 2) If there is no page currently mapped at va, silently return
 	if (!page_p) {
-		warn("page_remove: Tried to remove a page that doesn't exist.");
+		// ToDo: debug
+		//warn("page_remove: Tried to remove a page that doesn't exist.");
 		return; 
 	}
 	

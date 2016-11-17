@@ -168,6 +168,7 @@ sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
 	
 	// Check whethere user provided us with good address (needs to be w/u/p in user's environement). 
 	// Don't need to check if eip, esp are good addresses since we will just get page faults (or issue with corresponding user environment). 
+	// We include write permission since user had to write to tf. 
 	user_mem_assert(env, tf, sizeof(struct Trapframe), PTE_W | PTE_U | PTE_P);
 	
 	// Update tf to ensure appropriate user input. 

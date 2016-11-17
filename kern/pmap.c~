@@ -840,6 +840,7 @@ page_remove(pde_t *pgdir, void *va)
 	
 	// 2) If there is no page currently mapped at va, silently return
 	if (!page_p) {
+		// ToDo: debug
 		warn("page_remove: Tried to remove a page that doesn't exist.");
 		return; 
 	}
@@ -977,7 +978,6 @@ user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 	
 		// 2) If the page table entry exists (the present bit has been set), return a pointer to the page table entry. Otherwise, we get null. 
 		pte_t * pt_entry = pgdir_walk(env->env_pgdir, (char *) index_addr, false ); 
-		cprintf("pt_entry: %x\n", *pt_entry);
 	
 		// 3) If the pt_entry doesn't exist (present bit not set), return null.
 		// The page table doesn't exist in the directory.  
@@ -991,7 +991,8 @@ user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 		// 4) Handle case when correct permissions are not set. 
 		// We only check the permission bits that they request us to check. 
 		if ( (*pt_entry & (perm | PTE_P)) != (perm | PTE_P)) {
-			user_mem_check_addr = (uintptr_t) MAX(ROUNDDOWN(index_addr, PGSIZE), va_int); 
+			user_mem_check_addr = (uintptr_t) MAX(ROUNDDOWN(index_addr, PGSIZE), va_int);
+			cprintf("pt_entry: %x\n", *pt_entry); 
 			return -E_FAULT;
 		}
 		
