@@ -302,6 +302,40 @@ static int
 copy_shared_pages(envid_t child)
 {
 	// LAB 5: Your code here.
-	return 0;
+	int r; 
+	// Local declaration of pte_cow for sanity checking. 
+	uint32_t pte_cow = 0x800; 
+	
+	
+	// COPY OVER SHARED PAGES IN PARENT'S UVPT TO CHILD (only for pages below USTACKTOP). 
+	// Update map of each page below USTACKTOP in both child and parent. 
+	unsigned ustacktop_pg = PGNUM(USTACKTOP); 
+	
+
+
+	unsigned pn; 
+	for (pn = 0; pn < ustacktop_pg; pn++) {
+		
+		// We should awalys have access to the directory. 
+		pde_t pde = uvpd[PDX(pn<<PGSHIFT)]; 
+		// Check to make sure present (both the pte and pde) and PTE is shared. 
+		if ((pde & PTE_P) && (uvpt[pn] & PTE_P) && (uvpt[pn] & PTE_SHARE)) {
+			// Sanity check: ensure in user-space. Need to ensure these sequentially or will throw page fault since directory entry might not be marked as user. 
+			assert(pde & PTE_U);
+			assert(uvpt[pn] & PTE_U);
+			// Make sure PTE_COW bit is not set (we don't expect PTE_COW and PTE_SHARE to be set at same time). 
+			assert(!(uvpt[pn] & pte_cow)); 
+			
+			// Obtain address to map. 
+			void * addr = (void *) (pn * PGSIZE); 
+			
+			// Copy the SYSCALL permissions directly from the current PTE. 
+			if ((r = sys_page_map(0,  addr, child, addr, uvpt[pn] & PTE_SYSCALL)) < 0)
+				panic("copy_shared_pages: sys_page_map for PTE_SHARE: %e", r);
+			
+			}
+	}
+	
+	return 0; 
 }
 

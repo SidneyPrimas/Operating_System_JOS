@@ -158,7 +158,36 @@ sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
 	// LAB 5: Your code here.
 	// Remember to check whether the user has supplied us with a good
 	// address!
-	panic("sys_env_set_trapframe not implemented");
+	
+	// Get the user's environment. 
+	struct Env *env;
+	int error = envid2env(envid, &env, 1); 
+	if (error < 0) {
+		return error; 
+	}
+	
+	// Check whethere user provided us with good address (needs to be w/u/p in user's environement). 
+	// Don't need to check if eip, esp are good addresses since we will just get page faults (or issue with corresponding user environment). 
+	user_mem_assert(env, tf, sizeof(struct Trapframe), PTE_W | PTE_U | PTE_P);
+	
+	// Update tf to ensure appropriate user input. 
+	// Set the IOPL Level to 0, ensuring malicious code doesn't get access to IO instructions. 
+	tf->tf_eflags = env->env_tf.tf_eflags & ~FL_IOPL_0; 
+	// Ensure interrupt flag is enabled
+	tf->tf_eflags = env->env_tf.tf_eflags | FL_IF;
+	// Ensure user environment always run at protection level 3
+	tf->tf_ds = tf->tf_ds | GD_UD | 3;
+	tf->tf_es = tf->tf_es | GD_UD | 3;
+	tf->tf_ss = tf->tf_ss | GD_UD | 3;
+	tf->tf_cs = tf->tf_cs | GD_UT | 3;  
+	
+	// Copy the tf data into env_store. And, redirect the tf pointer to data in env_store. 
+	env->env_tf = *tf;
+	tf = &env->env_tf;
+	
+	
+	
+	return 0; 
 }
 
 // Set the page fault upcall for 'envid' by modifying the corresponding struct
@@ -567,7 +596,9 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 	  case SYS_exofork : 
 	  	return sys_exofork();
 	  case SYS_env_set_status : 
-	  	return sys_env_set_status((envid_t) a1, (int) a2);  
+	  	return sys_env_set_status((envid_t) a1, (int) a2); 
+	  case SYS_env_set_trapframe : 
+	  	return sys_env_set_trapframe((envid_t) a1, (struct Trapframe *) a2); 
 		case SYS_yield : 
 			sys_yield();
 			return 0; 

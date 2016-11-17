@@ -81,22 +81,34 @@ duppage(envid_t envid, unsigned pn)
 	
 	void * addr = (void *) (pn * PGSIZE); 
 	
+	// Sanity Check
+	if ((uvpt[pn] & PTE_COW) && (uvpt[pn] & PTE_SHARE)) {
+		panic("duppage in fork: pte is both COW and SHARE. \n");
+	}
+	
+	// If the entry is SHARE, copy the mappings directly. 
+	//Checks that PTE is share and only share. 
+	if ((uvpt[pn] & PTE_AVAIL) == PTE_SHARE) {
+		// Copy the SYSCALL permissions directly from the current PTE. 
+		if ((r = sys_page_map(0,  addr, envid, addr, uvpt[pn] & PTE_SYSCALL)) < 0)
+			panic("duppage: sys_page_map for PTE_SHARE: %e", r);
+	
+	}
 	// If the entry is writable or COW, remap in parent and child to COW. 
-	if (((uvpt[pn] & PTE_W) == PTE_W) || ((uvpt[pn] & PTE_AVAIL) == PTE_COW)) {
+	else if (((uvpt[pn] & PTE_W) == PTE_W) || ((uvpt[pn] & PTE_AVAIL) == PTE_COW)) {
 		// Takes the pte in the parents mapping and copies it over to the same pte in the child's mapping (mapped to the same physical address). 
 		if ((r = sys_page_map(0,  addr, envid, addr, PTE_P|PTE_U|PTE_COW)) < 0)
-			panic("duppage: sys_page_map: %e", r);
+			panic("duppage: sys_page_map for PTE COW: %e", r);
 	
 		// Our mapping must be made copy-on-write (instead of writable)
 		if ((r = sys_page_map(0,  addr, 0, addr, PTE_P|PTE_U|PTE_COW)) < 0)
-			panic("duppage: sys_page_map: %e", r);
-	}
+			panic("duppage: sys_page_map for PTE COW: %e", r);
 	else {
 		
 		// If the entry present, but read-only, still copy it to child!!!
 		// Mark as read-only
 		if ((r = sys_page_map(0,  addr, envid, addr, PTE_P|PTE_U)) < 0)
-			panic("duppage: sys_page_map: %e", r);
+			panic("duppage: sys_page_map for READ ONLY: %e", r);
 	}
 	
 	
