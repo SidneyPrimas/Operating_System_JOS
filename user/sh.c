@@ -22,22 +22,26 @@ void
 runcmd(char* s)
 {
 	char *argv[MAXARGS], *t, argv0buf[BUFSIZ];
-	int argc, c, i, r, p[2], fd, pipe_child;
+	int argc, c, i, r, p[2], fd, pipe_child, multiple_commands, background;
+	
 
 	pipe_child = 0;
+	multiple_commands = 0; 
+	background = 0; 
 	gettoken(s, 0);
 
 again:
 	argc = 0;
 	while (1) {
-		switch ((c = gettoken(0, &t))) {
-
+		c = gettoken(0, &t); 
+		switch (c) {
 		case 'w':	// Add an argument
 			if (argc == MAXARGS) {
 				cprintf("too many arguments\n");
 				exit();
 			}
 			argv[argc++] = t;
+			cprintf("t: %p \n", t);
 			break;
 
 		case '<':	// Input redirection
@@ -59,9 +63,8 @@ again:
 				cprintf("open %s for read: %e", t, fd);
 				exit();
 			}
-			cprintf("open %s for read: %d \n", t, fd);
+
 			if (fd != 0) {
-				cprintf("fd: %d \n", fd);
 				dup(fd, 0);
 				close(fd);
 			}
@@ -115,6 +118,14 @@ again:
 			}
 			panic("| not implemented");
 			break;
+		case ';': // Multiple commands per line. 
+			multiple_commands = 1; 
+			goto runit; 
+		
+		case '&' : // Backgrounding commands
+			background = 1; 
+			goto runit; 
+		
 
 		case 0:		// String is complete
 			// Run the current command!
@@ -130,9 +141,15 @@ again:
 runit:
 	// Return immediately if command line was empty.
 	if(argc == 0) {
+		background = 0; 
 		if (debug)
 			cprintf("EMPTY COMMAND\n");
-		return;
+		if (multiple_commands) {
+			multiple_commands = 0; 
+			goto again; 
+		} else {
+			return;
+		}
 	}
 
 	// Clean up command line.
@@ -153,11 +170,53 @@ runit:
 			cprintf(" %s", argv[i]);
 		cprintf("\n");
 	}
+	
+	
+	if (background) {
+		if ((fork()) == 0) {
+			// Child is executing. 
+			background = 0;
+			
+			// Name file for background output
+			char background_file[] = "/background"; 
+			cprintf("Tryme: %s \n", argv[0]);
+			if ((fd = open(background_file, O_WRONLY|O_CREAT|O_TRUNC)) < 0) {
+				cprintf("open %s for write: %e", t, fd);
+				exit();
+			}
+			if (fd != 1) {
+				dup(fd, 1);
+				close(fd);
+			}
+			
+			// Spawn the command
+			if ((r = spawn(argv[0], (const char**) argv)) < 0)
+				cprintf("spawn %s: %e\n", argv[0], r);
+			
+			close_all();
+			wait(r); 
+			exit(); 
+		} else {
+			// Parent is executing. 
+			background = 0;
+			close_all(); 
+			exit(); 
+		} 
+	}
 
 	// Spawn the command!
 	if ((r = spawn(argv[0], (const char**) argv)) < 0)
 		cprintf("spawn %s: %e\n", argv[0], r);
-
+		
+		
+	if (multiple_commands) {
+		wait(r);
+		multiple_commands = 0; 
+		goto again; 
+	}
+	
+		
+		
 	// In the parent, close all file descriptors and wait for the
 	// spawned command to exit.
 	close_all();
@@ -168,6 +227,8 @@ runit:
 		if (debug)
 			cprintf("[%08x] wait finished\n", thisenv->env_id);
 	}
+	
+
 
 	// If we were the left-hand part of a pipe,
 	// wait for the right-hand part to finish.
@@ -277,7 +338,7 @@ umain(int argc, char **argv)
 	interactive = '?';
 	echocmds = 0;
 	argstart(&argc, argv, &args);
-	while ((r = argnext(&args)) >= 0)
+	while ((r = argnext(&args)) >= 0) 
 		switch (r) {
 		case 'd':
 			debug++;

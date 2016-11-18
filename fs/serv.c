@@ -258,8 +258,10 @@ serve_write(envid_t envid, struct Fsreq_write *req)
 	
 	// First, use openfile_lookup to find the relevant open file.
 	// On failure, return the error code to the client with ipc_send.
-	if ((r = openfile_lookup(envid, req->req_fileid, &o)) < 0)
+	if ((r = openfile_lookup(envid, req->req_fileid, &o)) < 0) {
+		cprintf("r error: %d \n", r);
 		return r;
+	}
 
 	// Second, call the relevant file system function (from fs/fs.c).
 	// On failure, return the error code to the client.
@@ -268,11 +270,14 @@ serve_write(envid_t envid, struct Fsreq_write *req)
 
 	
 	// Read req_n bytes into ret_buf. 
-	if ((n_write = file_write(o->o_file, req->req_buf, req->req_n, o->o_fd->fd_offset)) < 0 ) 
+	if ((n_write = file_write(o->o_file, req->req_buf, req->req_n, o->o_fd->fd_offset)) < 0 ) {
+		cprintf("n_write error: %d \n", n_write);
 		return n_write;
+	}
 	
 	// The file descriptor keeps track of the offset for this file. Update it. 
 	o->o_fd->fd_offset = o->o_fd->fd_offset + n_write; 
+
 	return n_write; 
 	
 }

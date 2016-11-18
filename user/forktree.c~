@@ -20,7 +20,7 @@ forkchild(const char *cur, char branch)
 		exit();
 	}
 	
-	cprtinf("next: %s\n", nxt); 
+	cprintf("next: %s \n", nxt); 
 }
 
 void

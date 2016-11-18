@@ -20,13 +20,13 @@ forkchild(const char *cur, char branch)
 		exit();
 	}
 	
-	cprintf("next: %s \n", nxt); 
+	printf("next: %s \n", nxt); 
 }
 
 void
 forktree(const char *cur)
 {
-	cprintf("%04x: I am '%s'\n", sys_getenvid(), cur);
+	printf("%04x: I am '%s'\n", sys_getenvid(), cur);
 
 	forkchild(cur, '0');
 	forkchild(cur, '1');
