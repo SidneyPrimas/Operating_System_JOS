@@ -33,9 +33,9 @@
 .globl _pgfault_upcall
 _pgfault_upcall:
 	// Call the C page fault handler.
-	pushl %esp			// function argument: pointer to UTF
+	pushl %esp			// function argument: pointer to UTF. 
 	movl _pgfault_handler, %eax
-	call *%eax
+	call *%eax				// Call the user pafault_handler
 	addl $4, %esp			// pop function argument
 	
 	// Now the C page fault handler has returned and you must return
@@ -65,18 +65,48 @@ _pgfault_upcall:
 	// ways as registers become unavailable as scratch space.
 	//
 	// LAB 4: Your code here.
+	
+	//Important: Moves trap-time %eip to the *trap-time* stack (so that we can use ret to retrun to trap-time %eip). 
+	// Move trap-time %eip into %eax
+	movl 0x28(%esp), %eax
+	// Increment  the esp on the user exception stack (so we have trap-time %eip 1 on stack, and it will point to trap-time %eip). 
+	subl $4, 0x30(%esp)
+	// Move trap-time %esp to %ecx
+	movl 0x30(%esp), %ecx
+	// Move trap-time %eip onto trap-time stack. 
+	movl %eax, (%ecx)
+	
+	
 
 	// Restore the trap-time registers.  After you do this, you
 	// can no longer modify any general-purpose registers.
 	// LAB 4: Your code here.
+	
+	// Skip fault_va and utf_err
+	addl $8,%esp
+	// Restore registers at trap-time. Inverse assembly of setting up trapframe (in trapentry.S). 
+	// Pop's values on track into all registers,  from EDI to EAX
+	popal
+	
+
 
 	// Restore eflags from the stack.  After you do this, you can
 	// no longer use arithmetic operations or anything else that
 	// modifies eflags.
 	// LAB 4: Your code here.
+	// skip eip (already taken care of). 
+	addl $4,%esp
+	// Special instructions to update the eflags register
+	popfl
 
 	// Switch back to the adjusted trap-time stack.
 	// LAB 4: Your code here.
+	
+	// Instruction doesn't modify eflags, and increments stack pointer before updating the esp register. 
+	popl %esp
 
 	// Return to re-execute the instruction that faulted.
 	// LAB 4: Your code here.
+	ret
+	
+	

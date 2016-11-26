@@ -214,7 +214,30 @@ serve_read(envid_t envid, union Fsipc *ipc)
 		cprintf("serve_read %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
 
 	// Lab 5: Your code here:
-	return 0;
+	ssize_t n_read; 
+	struct OpenFile *o;
+	int r; 
+	size_t n_to_read = req->req_n;
+	
+	// First, use openfile_lookup to find the relevant open file.
+	// On failure, return the error code to the client with ipc_send.
+	if ((r = openfile_lookup(envid, req->req_fileid, &o)) < 0)
+		return r;
+
+	// Second, call the relevant file system function (from fs/fs.c).
+	// On failure, return the error code to the client.
+	// Ensure that not requesting more than a single page. 
+
+	if (req->req_n > PGSIZE) {
+		n_to_read = PGSIZE; 
+	}
+	// Read req_n bytes into ret_buf. 
+	if ((n_read = file_read(o->o_file, ret->ret_buf, n_to_read, o->o_fd->fd_offset)) < 0 ) 
+		return n_read;
+	
+	// The file descriptor keeps track of the offset for this file. Update it. 
+	o->o_fd->fd_offset = o->o_fd->fd_offset + n_read; 
+	return n_read; 
 }
 
 
@@ -229,7 +252,34 @@ serve_write(envid_t envid, struct Fsreq_write *req)
 		cprintf("serve_write %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
 
 	// LAB 5: Your code here.
-	panic("serve_write not implemented");
+	struct OpenFile *o;
+	int r; 
+	int n_write; 
+	
+	// First, use openfile_lookup to find the relevant open file.
+	// On failure, return the error code to the client with ipc_send.
+	if ((r = openfile_lookup(envid, req->req_fileid, &o)) < 0) {
+		cprintf("r error: %d \n", r);
+		return r;
+	}
+
+	// Second, call the relevant file system function (from fs/fs.c).
+	// On failure, return the error code to the client.
+	// Ensure that not requesting to write more data than sent. 
+	assert(req->req_n <= PGSIZE - (sizeof(int) + sizeof(size_t))); 
+
+	
+	// Read req_n bytes into ret_buf. 
+	if ((n_write = file_write(o->o_file, req->req_buf, req->req_n, o->o_fd->fd_offset)) < 0 ) {
+		cprintf("n_write error: %d \n", n_write);
+		return n_write;
+	}
+	
+	// The file descriptor keeps track of the offset for this file. Update it. 
+	o->o_fd->fd_offset = o->o_fd->fd_offset + n_write; 
+
+	return n_write; 
+	
 }
 
 // Stat ipc->stat.req_fileid.  Return the file's struct Stat to the

@@ -45,6 +45,14 @@ enum EnvType {
 	ENV_TYPE_NS,		// Network server
 };
 
+// Priority Levels
+enum {
+	P0 = 0, 
+	P1, 
+	P2, 
+	P3
+};
+
 struct Env {
 	struct Trapframe env_tf;	// Saved registers
 	struct Env *env_link;		// Next free Env
@@ -54,6 +62,7 @@ struct Env {
 	unsigned env_status;		// Status of the environment
 	uint32_t env_runs;		// Number of times environment has run
 	int env_cpunum;			// The CPU that the env is running on
+	int env_priority; 
 
 	// Address space
 	pde_t *env_pgdir;		// Kernel virtual address of page dir

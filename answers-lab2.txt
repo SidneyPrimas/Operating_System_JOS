@@ -1,0 +1,37 @@
+Question 1: 
+myster_t will by of type uintptr_t. Essentially, value is a pointer to a virtual address. After boot.S switches from real mode into protected mode, all memory references in C are intepreted as virtual addresses. Thus, the return_a_pointer() function will return a virtual address. We assign the value at the virtual address to be 10. And then, we cast the virtual address pointer value into it's the virtual address integer representation (which can be useful for manipulation, etc). This virtual address integer representation is defined as uintprt_t type. 
+
+Question 2: 
+
+The below is the table. We left out a significant section of 0. The table includes the base virtual addresses on the left. Only one virtual address is shown for ever 4 table entries. The table entries include the PPN and the permissions. Also, some entry counts are includes. The lower entry counts are all 0x0 until the shown section. 
+
+0xf0119000: 	(entry 0) 0x00000000	(entry 1) 0x00000000	(entry 2) 0x00000000	(entry 3) 0x00000000
+.... ALL 0s ...
+0xf0119ee0:	(entry 952)0x00000000	(entry 953)0x00000000	(entry 954)0x00000000	(entry 955) 0x00000000
+0xf0119ef0:	0x003fd007	0x00119005	0x00000000	0x003fe007 
+0xf0119f00:	0x003ff027	0x003fc027	0x003fb027	0x003fa027
+0xf0119f10:	0x003f9027	0x003f8027	0x003f7027	0x003f6027
+0xf0119f20:	0x003f5027	0x003f4027	0x003f3027	0x003f2027
+0xf0119f30:	0x003f1027	0x003f0027	0x003ef027	0x003ee027
+0xf0119f40:	0x003ed027	0x003ec027	0x003eb027	0x003ea027
+0xf0119f50:	0x003e9027	0x003e8027	0x003e7027	0x003e6027
+0xf0119f60:	0x003e5027	0x003e4027	0x003e3027	0x003e2027
+0xf0119f70:	0x003e1027	0x003e0027	0x003df027	0x003de027
+0xf0119f80:	0x003dd007	0x003dc007	0x003db007	0x003da007
+0xf0119f90:	0x003d9007	0x003d8007	0x003d7007	0x003d6007
+0xf0119fa0:	0x003d5007	0x003d4007	0x003d3007	0x003d2007
+0xf0119fb0:	0x003d1007	0x003d0007	0x003cf007	0x003ce007
+0xf0119fc0:	0x003cd007	0x003cc007	0x003cb007	0x003ca007
+0xf0119fd0:	0x003c9007	0x003c8007	0x003c7007	0x003c6007 
+0xf0119fe0:	0x003c5007	0x003c4007	0x003c3007	0x003c2007 
+0xf0119ff0:	(entry 1020) 0x003c1007	(entry 1021) 0x003c0007	(entry 1022) 0x003bf007	(entry 1023) 0x003be007
+
+Question 3: The page-level protections allow us to protect the kernel memory from the user. Essentially, all programs run with virtual addresses. The hardware and operating system map these virtual addresses to physical addresses. So, in order for a user to access any physical memory, they have to have routed through the memory management unit. During this re-routing process, we route through the page directory and page tables, which are maintained by the hardware and OS. The entries of the PDE and PTE have permissions, and specifically have permissions if the physical address page can be accessed by the user (the User permission bit). If the permission bit is not set, the physical address cannot be accessed, and thus we still have isolationg and protection between the user and the kernel. The CPLD keeps track of which state the system/hardware is in for appripriate management. 
+
+Question 4: The maximum amount of physical memory the operating system can support is 2^32, or 4294967296 bytes. The reason for this is that we have a 32bit operating system, and thus can only store and manipulate pointers with the processor pipeline/machinery that are 32bits long. Thus, there are 2^32 possible pointers that the operating system can have, with each pointer mapping to a byte of memory (which is the convention). Thus, the maximum physical memory we can support (without obviously including disk) is 4294967296 bytes. 
+
+Question 5: The memory overhead stems from the paging tables and paging directory. If we had the maximum amount of physical memory, we would need to map 4294967296 virtual addresses to their physical addresses. A page directory has 1024 entries, with each pointing to a page of another 1024 entires. And, each page represents 4096 bytes of data, accesses through the offset. Thus, with a single page directory we can represent 4294967296 bytes of data, or the maximum amount of physical memory. The memory overhead for this is the page tables (1024 page tables * 4096 bytes) and page directories (1 page directory at 4096 bytes). So, the memory overhead is 4198400 bytes. 
+
+Question 6: After we iniate paging (or moving into protected mode), we then move to running at an EIP above KERNBASE. We do this through the jmp *eax command in entry.S that plays a processor/hardware trick to first switch to EIPs above kernbase. The period between going into protected mode and switching to a higher EIP still works since we have an entry_pgdir and an entry_pgtable setup that maps [0MB,4MB) of virtual addresses to [0MB,4MB) of physical addresses. Thus, the low EIPs are still treated as virtual addresses and mapped correctly to physical addresses. This transition is necessary since there are going to be a few instructions between turning on page and moving to a higher EIP that must still map correctly to physical memory. The transition to virtual addresses is necessary since the linkers setup the C code to run with virtual addresses. Further, we seperate the Kernal from the user address space, and we fist setup the Kernel address space, which is abvoe KERNBASE. 
+
+Challenge Execise: The challange I selected was to extend the JOS kernel monitor with better commands. The goal of this was to make debugging easier in the future. As part of this exercise, I included multiple commands, including permissions, show_mappings, dump_mem_pa and dump_memory_va. For the permissions command, I obtain the PTE for a virtual address through walk_pgdir. I then allow the user to update permissions for any PTE that has already been mapped. This functionaity will later allow me to change permissions for any mapped PTE, which will hopefully be helpful for debugging once the user-space is created as well. The show_mappings command prints the PTE between a range of addresses (the range of addresses are the arguments of the commmand). If the PTEs exist, I print most of the relevant information for the PTE, including the PGNUM the PTE_ADDR and the permissions for the PTE. For any address in the provided range, I will print the corresponding PTE once. Finally, dump_memory_va allows me to directly dump memory to the console. This is done one byte at a time, and makes sure to hope across page boundaries. If a page doesn't exist then we just indicate this to the user, but continue to cycle through all requested addresses. I have the corresponding command that takes in physical memory pointers called dump_mem_pa. In this implementation, I search through every PDE and corresponding PTEs for the PGNUM of the physical address. Essentially, I compare every pte (that is currently marked as pressent) to the physical address that I am looking for. If the physical address is mapped and the PPN match up, I re-create the virtual address from the PDE, PTE and offset of the physical address. With the virtual address in hand, I can access the data directly, and show it on the console. This function is not optimized for performance and so re-locates the virtual address from the physical address at each address lookup (instead of caching the entire page). 

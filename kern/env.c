@@ -119,6 +119,23 @@ env_init(void)
 {
 	// Set up envs array
 	// LAB 3: Your code here.
+	
+	// Initialize all ENV structs stored in the envs array. 
+	// Note: Traversing the array backwards ensures env_free_list will point to envs[0] to start, and then the linked list will traverse forward through the array after initialization. 
+	size_t i;
+	for (i = 0; i < NENV; i++) {
+		size_t index = NENV-1-i; 
+		envs[index].env_status = ENV_FREE;
+		envs[index].env_id = 0; 
+		// Create the linked list. 
+		envs[index].env_link = env_free_list;
+		env_free_list = &envs[index];
+		
+		// Default is minimal priority. 
+		envs[index].env_priority = P3; 
+		
+	}
+	
 
 	// Per-CPU part of the initialization
 	env_init_percpu();
@@ -182,6 +199,15 @@ env_setup_vm(struct Env *e)
 	//    - The functions in kern/pmap.h are handy.
 
 	// LAB 3: Your code here.
+	// Maintain pp_ref for this page since will be dynamically allocated. 
+	p->pp_ref++;
+	// Save the beginning of the page directory in Env structure. 
+	e->env_pgdir = (pde_t *) page2kva(p);
+	
+	
+	// Initialize the kernel portion of the new environment's address space (setup address space above UTOP).  
+	// Since all addresses spaces map the kernel portion in the same way, just copy kern_pgdir into env_pgdir. We replicate the Kernel space. 
+	memcpy(e->env_pgdir, kern_pgdir, PGSIZE);
 
 	// UVPT maps the env's own page table read-only.
 	// Permissions: kernel R, user R
@@ -205,12 +231,14 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 	int r;
 	struct Env *e;
 
-	if (!(e = env_free_list))
+	if (!(e = env_free_list)) {
 		return -E_NO_FREE_ENV;
+	}
 
 	// Allocate and set up the page directory for this environment.
-	if ((r = env_setup_vm(e)) < 0)
+	if ((r = env_setup_vm(e)) < 0) {
 		return r;
+	}
 
 	// Generate an env_id for this environment.
 	generation = (e->env_id + (1 << ENVGENSHIFT)) & ~(NENV - 1);
@@ -223,6 +251,8 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 	e->env_type = ENV_TYPE_USER;
 	e->env_status = ENV_RUNNABLE;
 	e->env_runs = 0;
+	
+	e->env_priority = P3; 
 
 	// Clear out all the saved register state,
 	// to prevent the register values
@@ -247,6 +277,10 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 
 	// Enable interrupts while in user mode.
 	// LAB 4: Your code here.
+	
+	// Note: By setting the IF to 1 in eflags, we enable the interrupts in user mode. 
+	// Essentially, this information will be popped from the stack to the eflags registers, thus enabling interrupts. 
+	e->env_tf.tf_eflags = FL_IF; 
 
 	// Clear the page fault handler until user installs one.
 	e->env_pgfault_upcall = 0;
@@ -257,8 +291,9 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 	// commit the allocation
 	env_free_list = e->env_link;
 	*newenv_store = e;
-
-	// cprintf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
+	
+	//ToDo: Debug
+	//cprintf("[%08x] new env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
 	return 0;
 }
 
@@ -279,6 +314,33 @@ region_alloc(struct Env *e, void *va, size_t len)
 	//   'va' and 'len' values that are not page-aligned.
 	//   You should round va down, and round (va + len) up.
 	//   (Watch out for corner-cases!)
+	
+	// Ensure that size is a multiple of PGSIZE. 
+	uintptr_t start = ROUNDDOWN((uintptr_t) va, PGSIZE); 
+	size_t alloc_size = ROUNDUP(len, PGSIZE);
+		
+	
+	// Map the entire address space by allocataing a page for each chunck. 
+	size_t i;
+	for (i = 0; i < alloc_size/PGSIZE; i++) {
+		
+		// Allocaate a new page for the program to be copied.
+		// We zero the new page that we receive (just in case). We zero it again later on. 
+		struct PageInfo *newPage = page_alloc(ALLOC_ZERO);
+		// Make sure that the page has been successfully alloacted.  
+		if (!newPage) {
+			panic("regino_alloc: New page allocation failed. \n");
+		}
+		// Map the virtual address to the newPage. page_insert will add the necessary page tables, update the page ref, remove previous page table entries, and update the new page table. 
+		int error = page_insert(e->env_pgdir, newPage, (void *) (start+i*PGSIZE), PTE_U | PTE_W | PTE_P); 
+		
+		if (error) {
+			panic("region_alloc: Could not insert page. \n");
+		}
+	
+	}
+	
+	return;
 }
 
 //
@@ -336,10 +398,54 @@ load_icode(struct Env *e, uint8_t *binary)
 
 	// LAB 3: Your code here.
 
+	// Convert the binary pointer argument into an elf struct pointer. 
+	// Note: There is a difference between elf header and program header. 
+	struct Elf *elfhdr = (struct Elf *) binary;  
+
+	// is this a valid ELF?
+	if (elfhdr->e_magic != ELF_MAGIC) {
+		panic("load_icode: Note valid elf header. \n");
+	}
+
+	// Initializes ph to the first elf program header. Use pointer arithmatic to find location of program header from beginning of ELF binary. 
+	struct Proghdr *ph = (struct Proghdr *) ((uint8_t *) elfhdr + elfhdr->e_phoff);
+	// Determine address of final program header. Again, use pointer arithmatic and e_phnum. 
+	struct Proghdr *eph = ph + elfhdr->e_phnum;
+	
+	// Loads and maps different program segments (as defined in the elf header that is loaded). 
+	for (; ph < eph; ph++) {
+		// Only load program segment if the type is an ELF_PROG_LOAD. 
+		if (ph->p_type == ELF_PROG_LOAD) {
+			// Allocoate p_memsz bytes in memory at p_va virtual address within the e ENV address space. 
+			region_alloc(e, (void *) ph->p_va,  ph->p_memsz);
+			// Load the relevent binary into the p_va address location. 
+			// So that we have access to the elf va mappings, switch to env_pgdir paging. 
+			lcr3(PADDR(e->env_pgdir));
+			// Copy the p_filesize number of bytes at (binary + offset) to the p_va virtual address
+			memcpy((void *)ph->p_va,  binary + ph->p_offset, ph->p_filesz);
+			// Zero out the remaining memory. Essentially, set to 0 from: ph->p_va + filesize to ph_p_va + p_memsz. 
+			memset((void *) (ph->p_va + ph->p_filesz), 0, ph->p_memsz - ph->p_filesz);
+			// Switch back to kernel paging. 
+			lcr3(PADDR(kern_pgdir));
+		}
+	}
+
+
 	// Now map one page for the program's initial stack
 	// at virtual address USTACKTOP - PGSIZE.
-
 	// LAB 3: Your code here.
+	region_alloc(e, (void *) (USTACKTOP - PGSIZE), PGSIZE);
+	
+	// Clear the page manually (just in case I remove zeroing in region_alloc in future). 
+	lcr3(PADDR(e->env_pgdir)); 
+	memset((void *) (USTACKTOP - PGSIZE), 0, PGSIZE);
+	lcr3(PADDR(kern_pgdir));
+	
+	// Setup the trapframe
+	// Initialize the entry point. Essentially, we set the EIP so that when the stack is restored, we  jumpe here (to the entry point of the uploaded 
+	e->env_tf.tf_eip = elfhdr->e_entry;
+
+	
 }
 
 //
@@ -353,9 +459,24 @@ void
 env_create(uint8_t *binary, enum EnvType type)
 {
 	// LAB 3: Your code here.
-
+	// Create a new environment. 
+	struct Env *env;
+	int error = env_alloc( &env, 0);
+	if (error) {
+		panic("env_create: Error with creating new environment. \n"); 
+	}
+	
+	// Set the env type. 
+	env->env_type = type;
+	// Initialize environment with binary. 
+	load_icode(env, binary);
+	
 	// If this is the file server (type == ENV_TYPE_FS) give it I/O privileges.
 	// LAB 5: Your code here.
+	if (type == ENV_TYPE_FS) {
+		// Set the IOPL to 3 for the FS environment so that it can execute IO instructions. 
+		env->env_tf.tf_eflags = env->env_tf.tf_eflags | FL_IOPL_3; 
+	}
 }
 
 //
@@ -375,7 +496,8 @@ env_free(struct Env *e)
 		lcr3(PADDR(kern_pgdir));
 
 	// Note the environment's demise.
-	// cprintf("[%08x] free env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
+	// ToDo: Debug
+	//cprintf("[%08x] free env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
 
 	// Flush all mapped pages in the user portion of the address space
 	static_assert(UTOP % PTSIZE == 0);
@@ -486,7 +608,29 @@ env_run(struct Env *e)
 	//	e->env_tf to sensible values.
 
 	// LAB 3: Your code here.
+	
+	//1) If the current environment exists and is running, set it back to runnable. 
+	if((curenv != NULL) &&  curenv->env_status == ENV_RUNNING) {
+		curenv->env_status = ENV_RUNNABLE;
+	}
+	
+	//2) Set curenv to the new environment. 
+	curenv = e; 
+	
+	//3) Set it's status to ENV_RUNNING
+	curenv->env_status = ENV_RUNNING; 
+	
+	//4) Update env_runs counter
+	curenv->env_runs++; 
+	
+	//5) Use lcr3() to switch to it's address space. lcr3 holds a physical address. 
+	lcr3(PADDR(e->env_pgdir));
+	
+	// Relase the kernel lock. We are no longer n the kernel. 
+	// ToDo: Make sure it makes sense to release lock here. 
+	unlock_kernel();
 
-	panic("env_run not yet implemented");
+	//6) use env_pop_tf
+	env_pop_tf(&(e->env_tf)); 
 }
 
