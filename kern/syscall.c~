@@ -11,6 +11,7 @@
 #include <kern/syscall.h>
 #include <kern/console.h>
 #include <kern/sched.h>
+#include <kern/time.h>
 
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
@@ -168,6 +169,7 @@ sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
 	
 	// Check whethere user provided us with good address (needs to be w/u/p in user's environement). 
 	// Don't need to check if eip, esp are good addresses since we will just get page faults (or issue with corresponding user environment). 
+	// We include write permission since user had to write to tf. 
 	user_mem_assert(env, tf, sizeof(struct Trapframe), PTE_W | PTE_U | PTE_P);
 	
 	// Update tf to ensure appropriate user input. 
@@ -566,6 +568,15 @@ sys_change_priority(int priority)
 	return 0; 
 }
 
+// Return the current time.
+static int
+sys_time_msec(void)
+{
+	// LAB 6: Your code here.
+	time_msec(); 
+	return 0; 
+}
+
 // Dispatches to the correct kernel function, passing the arguments.
 int32_t
 syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
@@ -607,7 +618,9 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 		case SYS_ipc_recv : 			
 			return sys_ipc_recv((void *) a1);
 		case SYS_change_priority : 
-			return sys_change_priority((int) a1);  
+			return sys_change_priority((int) a1);
+		case SYS_time_msec : 
+			return sys_time_msec(); 
 
 		default:
 			return -E_INVAL;

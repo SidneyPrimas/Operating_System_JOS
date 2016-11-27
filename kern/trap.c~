@@ -15,6 +15,7 @@
 #include <kern/cpu.h>
 #include <kern/spinlock.h>
 #include <kern/time.h>
+//#include <kern/cpu.h>
 
 static struct Taskstate ts;
 
@@ -326,25 +327,27 @@ trap_dispatch(struct Trapframe *tf)
 	// Handle clock interrupts. Don't forget to acknowledge the
 	// interrupt using lapic_eoi() before calling the scheduler!
 	// LAB 4: Your code here.
-<<<<<<< HEAD
 
 	// Add time tick increment to clock interrupts.
 	// Be careful! In multiprocessors, clock interrupts are
 	// triggered on every CPU.
 	// LAB 6: Your code here.
-
-
-=======
 	
 	
 	if (tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER) {
 		// ToDo: Debug
 		//cprintf("Timer Interrupt \n"); 
+		
+		// Add time tick increment to clock interrupts. 
+		// Only CPU0 manages the time. 
+		if (thiscpu->cpu_id == bootcpu->cpu_id) {
+			time_tick(); 
+		}
+		
 		lapic_eoi(); 
 		sched_yield();
 	}
 	
->>>>>>> lab5
 	// Handle keyboard and serial interrupts.
 	// LAB 5: Your code here.
 	

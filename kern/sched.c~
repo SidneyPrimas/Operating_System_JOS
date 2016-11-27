@@ -126,7 +126,7 @@ sched_yield(void)
 				env_run(curenv);
 			}
 			
-			cprintf("shed_yield: No RUNNABLE environments found \n");
+			//cprintf("shed_yield: No RUNNABLE environments found \n");
 			break; 
 		}
 	
@@ -153,7 +153,7 @@ sched_halt(void)
 {
 	int i;
 	
-	cprintf("sched_halt debug: Running sched_halt() \n");
+	//cprintf("sched_halt debug: Running sched_halt() \n");
 
 	// For debugging and testing purposes, if there are no runnable
 	// environments in the system, then drop into the kernel monitor.

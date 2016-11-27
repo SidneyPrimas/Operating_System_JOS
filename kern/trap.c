@@ -15,6 +15,7 @@
 #include <kern/cpu.h>
 #include <kern/spinlock.h>
 #include <kern/time.h>
+//#include <kern/cpu.h>
 
 static struct Taskstate ts;
 
@@ -336,6 +337,13 @@ trap_dispatch(struct Trapframe *tf)
 	if (tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER) {
 		// ToDo: Debug
 		//cprintf("Timer Interrupt \n"); 
+		
+		// Add time tick increment to clock interrupts. 
+		// Only bootcpu manages the time. 
+		if (thiscpu->cpu_id == bootcpu->cpu_id) {
+			time_tick(); 
+		}
+		
 		lapic_eoi(); 
 		sched_yield();
 	}
