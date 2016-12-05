@@ -1,11 +1,20 @@
 // hello, world
+#include <inc/string.h>
 #include <inc/lib.h>
 
 void
 umain(int argc, char **argv)
 {	
-	asm volatile("int $3");
 	cprintf("hello, world\n");
-	asm volatile("int $3");
 	cprintf("i am environment %08x\n", thisenv->env_id);
+	
+	char send[] = "hello";
+	cprintf("Size: %d \n", sizeof(send));
+	sys_transmit_packet(&send, sizeof(send));
+	char send2[] = "world";
+	cprintf("Size: %d \n", sizeof(send2));
+	sys_transmit_packet(&send2, sizeof(send2));
+	char send3[] = "We can do this!!!! Let's finish this ASAP \n";
+	cprintf("Size: %d \n", sizeof(send3));
+	sys_transmit_packet(&send3, sizeof(send3));
 }

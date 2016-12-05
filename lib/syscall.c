@@ -128,3 +128,10 @@ sys_change_priority(int priority)
 {
 	return syscall(SYS_change_priority, 1, priority, 0, 0, 0, 0);
 }
+
+
+int
+sys_transmit_packet(void * packet, size_t size)
+{
+	return syscall(SYS_transmit_packet, 1, (uint32_t) packet, size, 0, 0, 0);
+}

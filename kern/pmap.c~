@@ -495,7 +495,7 @@ page_alloc(int alloc_flags)
 	//Return NULL if out of free memory. 
 	// When page_free_list is NULL, we have reached the end of the linked list. So, we are out of free memory. 
 	if (page_free_list == NULL) {
-		panic("Out of free memory.\n");
+		assert("Out of free memory.\n");
 		return NULL;
 	}
 	// Fill the entire returned physical page with '\0' bytes. 
@@ -553,7 +553,7 @@ page_decref(struct PageInfo* pp)
 
 	if (--pp->pp_ref == 0) {
 		//debug
-		//cprintf("page_decref: Remove page with pp_ref %d \n", pp->pp_ref);
+		cprintf("page_decref: Remove page with pp_ref %d \n", pp->pp_ref);
 		page_free(pp);
 		}
 }

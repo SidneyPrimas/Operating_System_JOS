@@ -32,33 +32,13 @@ int pci_attach_E1000(struct pci_func *pcif) {
 	int reg_STATUS = E1000_STATUS/sizeof(*e1000_io); 
 	cprintf("Status Register Check: %x \n", e1000_io[reg_STATUS]); 
 	assert(e1000_io[reg_STATUS] == 0x80080783);
-	
-	// Transmit Initialization: Setup Transmit Que //
-	// Create the transmit descriptor list/que. 
-	// Note: This probably can be done through a global variable. This method puts aside an entire page permenantly. 
-	// Allocate a full page to hold the transmit descriptor array. 
-	if ((tx_desc_page = page_alloc(ALLOC_ZERO)) == NULL) {
-		panic("pci_attach_E1000: page_alloc error, out of free memory. \n");
-		return -E_NO_MEM; 
-	} 
-	
-	// REMAP INTO KERNEL (Already mapped previously, but redo for completeness) 
-	// Since we will only access the tx_desc_list from the kernel, we map the list into the kernel space using page2kva. 
-	// The page2kva mapping allows us to directly map the physical and virtual address to each other. 
-	// We map this in kern_pgdir so it's propogated to all other environments. 
-	if ((r = page_insert(kern_pgdir, tx_desc_page, page2kva(tx_desc_page), PTE_W | PTE_P)) < 0) {
-		panic("pci_attach_E1000: page_page_insert error. \n");
-		return r; 
-	}
-	
-	// Map the beginning of the page to the que/list of transmit descriptors. 
-	tx_desc_list = (struct TX_Desc *) page2kva(tx_desc_page); 
+		
 	
 	// Program the base address into TDBAL (Transmit Descriptor Base Address Lower) 
 	// Must be a physical address since E1000 uses direct memory access. 
 	int reg_TDBAL = E1000_TDBAL/sizeof(*e1000_io);
 	int reg_TDBAH = E1000_TDBAH/sizeof(*e1000_io); 
-	e1000_io[reg_TDBAL] = page2pa(tx_desc_page);
+	e1000_io[reg_TDBAL] = PADDR(&tx_desc_list);
 	e1000_io[reg_TDBAH] = 0x0; 
 	
 	// Set the Transmit Descriptor Length (TDLEN) register to the size (in bytes) of the descriptor ring. 
@@ -100,11 +80,11 @@ int pci_attach_E1000(struct pci_func *pcif) {
 			return -E_NO_MEM; 
 		} 
 		
-		// Map the page into virtual address space so that kernel can write the packet to be transmitted. 
-		if ((r = page_insert(kern_pgdir, buffer_page, page2kva(buffer_page), PTE_W | PTE_P)) < 0) {
-			panic("pci_attach_E1000: page_insert error while creating descriptors. \n");
-			return r; 
-		}
+		// Physical address of page has already been mapped to corresponding virtual address (during memory setup). So, no need to re-insert and re-map page. 
+		// Make sure to increment page reference since it's in use!
+		// Note: Re-inserting is a bad idea since we will remove previous va to pa mapping and replace with this one. 
+		buffer_page->pp_ref++; 
+		
 		
 		// Include the physical address of the buffer in the descriptor. 
 		// E1000 can use this pa for DMA. And, kernel can find va from this pa (mapped above). 
@@ -119,9 +99,10 @@ int pci_attach_E1000(struct pci_func *pcif) {
 		tx_desc_new.cso = 0x0; 
 		// CMD is optional: Used to setup Report Status (RS) and Descriptor Done (RD) 
 		// DEXT must be set to 0 for Legazy descriptor
-		tx_desc_new.cmd = E1000_TDESC_CMD_RS; 
+		tx_desc_new.cmd = E1000_TDESC_CMD_RS | E1000_TXD_CMD_EOP; 
 		// Provides status if RS set in CMD
-		tx_desc_new.status = 0x0; 
+		// Needs to be set initially, indicating descroptor is ready to use. 
+		tx_desc_new.status = E1000_TXD_STAT_DD; 
 		// CSS is optional
 		tx_desc_new.css = 0x0; 
 		// Used to setup tagging information (only works if CTRL.VME is 1b and EOP at 1b in CMD). 
@@ -131,8 +112,9 @@ int pci_attach_E1000(struct pci_func *pcif) {
 	
 	}
 	
-	char send[] = "hello"; 
-	e1000_transmit_packet(&send, sizeof(send));
+
+	
+
 	
 	return 0; 
 }
@@ -153,21 +135,28 @@ int e1000_transmit_packet(void * packet, size_t size) {
 	int reg_TDT = E1000_TDT/sizeof(*e1000_io);
 	int desc_offset = e1000_io[reg_TDT];
 	struct  TX_Desc current_desc = tx_desc_list[desc_offset];
+
+	
 	
 	// If Descrptor Done bit  NOT set, then descriptor not ready to be used. 
 	// User must resend data. 
 	if ((current_desc.status & E1000_TXD_STAT_DD) == 0x0) {
+		warn("DD NOT set. Descriptor still needs to be processed by E1000. \n");
 		return -E_TX_BUFF_FULL; 
 	}
 	
 	// Descriptor available! 
 	// Reset DD bit in status. Update the descriptor length. 
-	current_desc.status = (current_desc.status | ~E1000_TXD_STAT_DD); 
+	current_desc.status = (current_desc.status & ~E1000_TXD_STAT_DD); 
 	current_desc.length = size; 
 	
 	// Update transmit buffer page with packet data (copy data over). 
 	// current_desc.addr_lower provides physical address, so need to convert to *va. 
 	memcpy(KADDR(current_desc.addr_lower) ,packet ,size); 
+	
+	cprintf("Address: %08x \n", current_desc.addr_lower); 
+	cprintf("CMD/CSO/Length: %08x \n", current_desc.cmd << (16 + 8)  | current_desc.cso << 16 | current_desc.length); 
+	cprintf("Special/CSS/Status: %06x \n", current_desc.special << (8 + 8)  | current_desc.css << 8 | current_desc.status); 
 	
 	// Update the descriptor (in transmit descriptor que). 
 	tx_desc_list[desc_offset] = current_desc;

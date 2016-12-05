@@ -29,7 +29,7 @@ struct TX_Desc
 
 // Global Variables 
 // Page assigned to contain list
-struct TX_Desc *tx_desc_list = NULL;
+struct TX_Desc tx_desc_list[n_tx_desc];
 
 
 /* Register Set. (82543, 82544)
@@ -82,6 +82,7 @@ struct TX_Desc *tx_desc_list = NULL;
 
 /* Select Settings for Transmit Descriptor Fiel */
 #define E1000_TDESC_CMD_RS 		(0x1<<3)
+#define E1000_TXD_CMD_EOP    	(0x1<<0) /* End of Packet */
 #define E1000_TXD_STAT_DD    	0x00000001 /* Descriptor Done */
 
 #endif	// JOS_KERN_E1000_H

@@ -12,6 +12,7 @@
 #include <kern/console.h>
 #include <kern/sched.h>
 #include <kern/time.h>
+#include <kern/e1000.h>
 
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
@@ -576,6 +577,23 @@ sys_time_msec(void)
 	return time_msec(); 
 }
 
+static int
+sys_transmit_packet(void *packet, size_t size)
+{
+	int r;
+	struct Env *e;
+	// Gets a pointer to the environment's envid from curenv (the one we are currently in). 
+	// Anoother possibility to use curenv: A single environment always has both a kernel and a user space. The user always kicks the interrupt into the kernel from the same environment. 
+	if ((r = envid2env(curenv->env_id, &e, 1)) < 0) {
+		panic("sys_cputs: Correct environment cannot be found. Error: %e \n", r);
+	}
+	// Maks sure that we have permission to access all addresses in packet+size range. 
+	user_mem_assert(e, packet, size, PTE_U | PTE_P); 
+	
+	return e1000_transmit_packet(packet, size);
+
+}
+
 // Dispatches to the correct kernel function, passing the arguments.
 int32_t
 syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
@@ -620,6 +638,8 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 			return sys_change_priority((int) a1);
 		case SYS_time_msec : 
 			return sys_time_msec(); 
+		case SYS_transmit_packet : 
+			return sys_transmit_packet((void *) a1, (size_t) a2);
 
 		default:
 			return -E_INVAL;
