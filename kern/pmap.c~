@@ -495,7 +495,7 @@ page_alloc(int alloc_flags)
 	//Return NULL if out of free memory. 
 	// When page_free_list is NULL, we have reached the end of the linked list. So, we are out of free memory. 
 	if (page_free_list == NULL) {
-		assert("Out of free memory.\n");
+		panic("Out of free memory.\n");
 		return NULL;
 	}
 	// Fill the entire returned physical page with '\0' bytes. 
@@ -841,7 +841,7 @@ page_remove(pde_t *pgdir, void *va)
 	// 2) If there is no page currently mapped at va, silently return
 	if (!page_p) {
 		// ToDo: debug
-		warn("page_remove: Tried to remove a page that doesn't exist.");
+		//warn("page_remove: Tried to remove a page that doesn't exist.");
 		return; 
 	}
 	

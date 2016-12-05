@@ -8,11 +8,14 @@
 
 #define n_tx_desc 32
 #define tx_desc_size 16
+#define max_packet_size 1518
 
+// Functions
 int pci_attach_E1000(struct pci_func *pcif); 
+int e1000_transmit_packet(void * packet, size_t size); 
 
 
-struct tx_desc
+struct TX_Desc
 {
 	uint32_t addr_lower; 
 	uint32_t addr_upper; 
@@ -23,6 +26,10 @@ struct tx_desc
 	uint8_t css; 
 	uint16_t special; 
 }; 
+
+// Global Variables 
+// Page assigned to contain list
+struct TX_Desc *tx_desc_list = NULL;
 
 
 /* Register Set. (82543, 82544)
@@ -72,5 +79,9 @@ struct tx_desc
 #define IPGR1_SHIFT				0x0A
 #define E1000_TIPG_IPGR2 	0x0C
 #define IPGR2_SHIFT				0x14
+
+/* Select Settings for Transmit Descriptor Fiel */
+#define E1000_TDESC_CMD_RS 		(0x1<<3)
+#define E1000_TXD_STAT_DD    	0x00000001 /* Descriptor Done */
 
 #endif	// JOS_KERN_E1000_H
