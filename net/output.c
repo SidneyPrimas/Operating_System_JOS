@@ -6,6 +6,7 @@ extern union Nsipc nsipcbuf;
 
 // Note: Runs within network server environment. This is a seperate environment. 
 // Note: Tested wtih user environment testoutput.c. 
+// Note: ns_envid is the environment id of the environment that set the request. 
 
 void
 output(envid_t ns_envid)
@@ -29,38 +30,49 @@ output(envid_t ns_envid)
 	int output; 
 	envid_t *from_env_store = NULL; 
 	int *perm_store = NULL; 
-	struct jif_pkt *pkt = (struct jif_pkt*)REQVA;
+	// Va where we receive network data from other environemnts
+	char * pci_pg = (char *) REQVA; 
 	
-	if ((r = sys_page_alloc(sys_getenvid(), pkt, PTE_U | PTE_W | PTE_P)) < 0) {
+	// Map the receive page at REQVA. Same va address used to send data from user environment. 
+	if ((r = sys_page_alloc(sys_getenvid(), pci_pg, PTE_U | PTE_W | PTE_P)) < 0) {
 		panic("Error in net/output.c: %e \n", r);
 	}
 	
 	
-	// Check for NSREQ_OUTPUT
+	// Infinit loop that 1) receives data from usr environment and 2) sends it out on the network. 
 	for (;;) {
 		// ipc_recv (sys call) blocks until environment recieves data. 
-		if ((output = ipc_recv(from_env_store, pkt, perm_store)) < 0) {
+		if ((output = ipc_recv(from_env_store, pci_pg, perm_store)) < 0) {
 			panic("Error with ipc_recv in net/output.c (%e) \n", output); 
 		} 
+	
+		// Process a Output NSREQ (transmit request) 
+		if(output == NSREQ_OUTPUT) {
+			
+			// Cast the received data into Nsipc union data struct. 
+			union Nsipc *nsipc_buffer_p = (union Nsipc *) pci_pg; 
+			
+			// Transmit data via E1000 Network Card using a system call. 
+			// If buffer full, continue to transmit until packet accepted. 
+			for (;;) {
+				r = sys_transmit_packet(nsipc_buffer_p->pkt.jp_data, nsipc_buffer_p->pkt.jp_len);
+				if (r >= 0) {
+					//Successful transmission. Handle next packet. 
+					break; 
+				} else if (r == -E_TX_BUFF_FULL) {
+					// NIC buffer full. Need to continute 
+					cprintf("NIC Buffer Full. Re-try. \n");
+					continue; 
+				} else {
+					panic("Error in net/output.c. Issue with sys_transmit_packet. \n");
+				}
+			}
 		
-		if(output != NSREQ_OUTPUT) {
-			// Used for debugging
-			panic("Careful: ipc_recv got a non-network value in net/output.c \n");
+		
+		// Flag any other requests: used for debugging. 
+		} else {
+			cprintf("Warn: ipc_recv got a non-network value in net/output.c \n");
 			continue; 
-		}
-		
-		//if (*from_env_store != ns_envid) {
-		//	continue; 
-		//	panic("Help me again \n");
-		//}
-		
-		// At this point, we received an NSREQ_OUTPUT from the IPC
-		union Nsipc *nsipc_test = (union Nsipc *) pkt; 
-		
-		// Transmit data via E1000 Network Card
-		r = sys_transmit_packet(&nsipcbuf.pkt.jp_data, nsipcbuf.pkt.jp_len);
-		if (r < 0) {
-			panic("Help me. \n");
 		}
 	}
 }

@@ -135,3 +135,10 @@ sys_transmit_packet(void * packet, size_t size)
 {
 	return syscall(SYS_transmit_packet, 1, (uint32_t) packet, size, 0, 0, 0);
 }
+
+int
+sys_receive_packet(void * packet, size_t * size)
+{
+	return syscall(SYS_receive_packet, 1, (uint32_t) packet, (uint32_t) size, 0, 0, 0); 
+}
+

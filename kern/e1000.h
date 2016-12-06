@@ -3,16 +3,26 @@
 
 #include <kern/pci.h>
 
+// E1000 parameters
 #define E1000_VENDOR_ID 0x8086 
 #define E1000_DEVICE_ID 0x100E
+// E1000 MAC Address (52:54:00:12:34:56)
+#define MAC_LOWER 			0x12005452	
+#define MAC_HIGHER			0x00005634
+
 
 #define n_tx_desc 32
 #define tx_desc_size 16
+#define n_rx_desc 256
+#define rx_desc_size 16
+#define max_receive_size 2048
+
 #define max_packet_size 1518
 
 // Functions
 int pci_attach_E1000(struct pci_func *pcif); 
 int e1000_transmit_packet(void * packet, size_t size); 
+int e1000_receive_packet(void * packet, size_t * size); 
 
 
 struct TX_Desc
@@ -27,9 +37,22 @@ struct TX_Desc
 	uint16_t special; 
 }; 
 
+
+
+struct RX_Desc
+{
+	uint32_t addr_lower; 
+	uint32_t addr_upper;  
+	uint16_t length; 
+	uint16_t checksum; 
+	uint8_t status; 
+	uint8_t errors; 
+	uint16_t special; 
+};
+
 // Global Variables 
-// Page assigned to contain list
 struct TX_Desc tx_desc_list[n_tx_desc];
+struct RX_Desc rx_desc_list[n_rx_desc]; 
 
 
 /* Register Set. (82543, 82544)
@@ -80,9 +103,33 @@ struct TX_Desc tx_desc_list[n_tx_desc];
 #define E1000_TIPG_IPGR2 	0x0C
 #define IPGR2_SHIFT				0x14
 
-/* Select Settings for Transmit Descriptor Fiel */
+/* Select Settings for Transmit Descriptor Field */
 #define E1000_TDESC_CMD_RS 		(0x1<<3)
 #define E1000_TXD_CMD_EOP    	(0x1<<0) /* End of Packet */
 #define E1000_TXD_STAT_DD    	0x00000001 /* Descriptor Done */
+
+/* Receive Registers */
+#define E1000_RAL       0x05400  		/* Receive Address (LOW) - RW Array */
+#define E1000_RAH       0x05404 	 	/* Receive Address (HIGH) - RW Array */
+#define E1000_RAH_AV    (0x1<<31)		/* Receive Address Address Valid (AV) */
+#define E1000_MTA      	0x05200  		/* Multicast Table Array - RW Array */
+#define E1000_MTA_SIZE  128  				/* Multicast Table Array - Size of array*/
+#define E1000_RDBAL    	0x02800  		/* RX Descriptor Base Address Low - RW */
+#define E1000_RDBAH    	0x02804  		/* RX Descriptor Base Address High - RW */
+#define E1000_RDLEN    	0x02808  		/* RX Descriptor Length - RW */
+#define E1000_RDH      	0x02810  		/* RX Descriptor Head - RW */
+#define E1000_RDT      	0x02818  		/* RX Descriptor Tail - RW */
+#define E1000_RCTL     0x00100  /* RX Control - RW */
+
+/* Masks for Receive Descriptor */
+#define E1000_RXD_STAT_DD    		(0x1<<0) /* Descriptor Done */
+#define E1000_RXD_STAT_EOP    	(0x1<<1) /* End of Packet */
+
+/* Receive Control */
+#define E1000_RCTL_EN             0x00000002    /* enable */
+#define E1000_RCTL_BAM            0x00008000    /* broadcast enable */
+#define E1000_RCTL_SZ_2048        0x00000000    /* rx buffer size 2048 */
+#define E1000_RCTL_SECRC          0x04000000    /* Strip Ethernet CRC */
+
 
 #endif	// JOS_KERN_E1000_H

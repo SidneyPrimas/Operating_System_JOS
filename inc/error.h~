@@ -28,6 +28,7 @@ enum {
 	
 	// Network Error
 	E_TX_BUFF_FULL,
+	E_NETWORK_GEN, 
 
 	MAXERROR
 };
