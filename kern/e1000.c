@@ -156,6 +156,11 @@ int e1000_receive_packet(void * packet, size_t * size) {
 	// Read info in next descriptor
 	struct  RX_Desc current_desc = rx_desc_list[desc_tail_next];
 	
+	//TODO: Debug
+	cprintf("Status: %x \n", current_desc.status);
+	int reg_RDH = E1000_RDH/sizeof(*e1000_io);
+	cprintf("Head: %d \n", e1000_io[reg_RDH]);
+	
 	// If Descrptor Done bit OR End of Packet (EOP)  NOT set, then descriptor NOT ready to be used. 
 	// User must resend data. 
 	if (!(current_desc.status & E1000_RXD_STAT_DD) || !(current_desc.status & E1000_RXD_STAT_EOP)) {

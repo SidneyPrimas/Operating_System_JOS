@@ -610,7 +610,7 @@ sys_receive_packet(void *packet, size_t *size)
 	user_mem_assert(e, size, sizeof(*size), PTE_W | PTE_U | PTE_P);
 	
 	
-	return 	e1000_receive_packet(packet, size); 
+	return e1000_receive_packet(packet, size); 
 
 }
 

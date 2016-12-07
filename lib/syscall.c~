@@ -140,6 +140,6 @@ int
 sys_receive_packet(void *packet, size_t *size) 
 {	
 	// Syntactic Sugar
-	//cprintf("");
+	cprintf("");
 	return syscall(SYS_receive_packet, 1, (uint32_t) packet, (uint32_t) size, 0, 0, 0);
 }

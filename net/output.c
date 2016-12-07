@@ -17,14 +17,6 @@ output(envid_t ns_envid)
 	// 	- read a packet from the network server
 	//	- send the packet to the device driver
 	
-	// TODO: 
-	// + How Do I check NS_ENVID (does it need to come from that environment)
-	// + What virtual address do I use? 
-	// + How do I use NSIPCBUF (and how do I use REQVA). 
-	// + Check if perm_store is wrong
-	// + How do I cast union Nsipc
-	// Currently I am not transmiting anytthing in my packet (think I am getting data from other location). 
-	
 	// Variables
 	int r; 
 	int output; 

@@ -610,7 +610,7 @@ sys_receive_packet(void *packet, size_t *size)
 	user_mem_assert(e, size, sizeof(*size), PTE_W | PTE_U | PTE_P);
 	
 	
-	return 	e1000_receive_packet(packet, size); 
+	return e1000_receive_packet(packet, size); 
 
 }
 
@@ -622,7 +622,7 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 	// Return any appropriate return value.
 	// LAB 3: Your code here.
 
-	cprintf("syscallno: %d \n", syscallno);
+
 	switch (syscallno) {
 		case SYS_cputs : 
 			sys_cputs((const char *) a1, a2); 
