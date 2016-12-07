@@ -52,11 +52,15 @@ static int init_receive(void) {
 	
 	// Program Receive Address Registers (RAL/RAH) with ethernet address
 	// RAL0 and RAH0 used to check for Ethernet MAC address of the Ethernet controller. 
-	// For these registers, always write low-to-high. 
+	// For these registers, always write low-to-high.
+	// Get mac address from EEPROM
+	uint16_t mac_addr[3];
+	e1000_get_mac_addr(mac_addr);
+	
 	int reg_RAL = E1000_RAL/sizeof(*e1000_io); 
 	int reg_RAH = E1000_RAH/sizeof(*e1000_io); 
-	e1000_io[reg_RAL] = MAC_LOWER;  
-	e1000_io[reg_RAH] = E1000_RAH_AV | MAC_HIGHER; // Ensure to indicate address is valid. 
+	e1000_io[reg_RAL] = (mac_addr[1] << 16) | mac_addr[0];  
+	e1000_io[reg_RAH] = E1000_RAH_AV | mac_addr[2]; // Ensure to indicate address is valid. 
 	
 	// Initialize the Multicaset Table Array to 0b.
 	// The MTA array has 128 entries of 32-bits.
@@ -342,6 +346,30 @@ int e1000_transmit_packet(void * packet, size_t size) {
 	
 	return 0; 
 	
-	
 }
+
+
+int e1000_get_mac_addr(uint16_t *mac_addr) 
+{
+	
+	int reg_EERD = E1000_EERD/sizeof(*e1000_io); 
+	size_t addr_n;
+	for (addr_n = 0; addr_n <3; addr_n++) {
+
+		e1000_io[reg_EERD] = ((EEPROM_ETHERNET + addr_n) << E1000_EERD_ADDR_S) | E1000_EERD_START;
+		
+		for (;;) {
+			if (e1000_io[reg_EERD] & E1000_EERD_DONE) {
+				mac_addr[addr_n] = e1000_io[reg_EERD]>>16; 
+				break; 
+			}
+		}
+	}
+
+	
+	return 0; 		
+}
+
+
+
 

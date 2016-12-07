@@ -59,14 +59,18 @@ low_level_init(struct netif *netif)
     netif->hwaddr_len = 6;
     netif->mtu = 1500;
     netif->flags = NETIF_FLAG_BROADCAST;
+    
+	// Get mac address from EEPROM 
+	char mac_addr[6];
+	sys_get_mac_addr((uint16_t *) mac_addr);
 
     // MAC address is hardcoded to eliminate a system call
-    netif->hwaddr[0] = 0x52;
-    netif->hwaddr[1] = 0x54;
-    netif->hwaddr[2] = 0x00;
-    netif->hwaddr[3] = 0x12;
-    netif->hwaddr[4] = 0x34;
-    netif->hwaddr[5] = 0x56;
+    netif->hwaddr[0] = mac_addr[0];
+    netif->hwaddr[1] = mac_addr[1];
+    netif->hwaddr[2] = mac_addr[2];
+    netif->hwaddr[3] = mac_addr[3];
+    netif->hwaddr[4] = mac_addr[4];
+    netif->hwaddr[5] = mac_addr[5];
 }
 
 /*

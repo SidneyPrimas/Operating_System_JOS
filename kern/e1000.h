@@ -6,9 +6,9 @@
 // E1000 parameters
 #define E1000_VENDOR_ID 0x8086 
 #define E1000_DEVICE_ID 0x100E
-// E1000 MAC Address (52:54:00:12:34:56)
-#define MAC_LOWER 			0x12005452	
-#define MAC_HIGHER			0x00005634
+// E1000 MAC Address (52:54:00:12:34:56) => Removed for challenge
+//#define MAC_LOWER 			0x12005452	
+//#define MAC_HIGHER			0x00005634
 
 
 #define n_tx_desc 32
@@ -23,6 +23,7 @@
 int pci_attach_E1000(struct pci_func *pcif); 
 int e1000_transmit_packet(void * packet, size_t size); 
 int e1000_receive_packet(void * packet, size_t * size); 
+int e1000_get_mac_addr(uint16_t *mac_addr); 
 
 
 struct TX_Desc
@@ -131,5 +132,11 @@ struct RX_Desc rx_desc_list[n_rx_desc];
 #define E1000_RCTL_SZ_2048        0x00000000    /* rx buffer size 2048 */
 #define E1000_RCTL_SECRC          0x04000000    /* Strip Ethernet CRC */
 
+/* Working with EEPROM */
+#define E1000_EERD     			0x00014  /* EEPROM Read - RW */
+#define E1000_EERD_START		(0x1<<0) /* Start bit */
+#define E1000_EERD_DONE			(0x1<<4) /* Done bit */
+#define E1000_EERD_ADDR_S		8		
+#define EEPROM_ETHERNET			0x0					
 
 #endif	// JOS_KERN_E1000_H

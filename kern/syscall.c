@@ -614,6 +614,15 @@ sys_receive_packet(void *packet, size_t *size)
 
 }
 
+
+static int
+sys_get_mac_addr(uint16_t * mac_addr) {
+	
+	
+	return e1000_get_mac_addr(mac_addr); 
+
+}
+
 // Dispatches to the correct kernel function, passing the arguments.
 int32_t
 syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
@@ -662,6 +671,8 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 			return sys_transmit_packet((void *) a1, (size_t) a2);
 		case SYS_receive_packet : 
 			return sys_receive_packet((void *) a1, (size_t *) a2); 
+		case SYS_get_mac_addr : 
+			return sys_get_mac_addr((uint16_t *) a1); 
 
 		default:
 			warn("syscall.c: Received an undefined system call. \n"); 

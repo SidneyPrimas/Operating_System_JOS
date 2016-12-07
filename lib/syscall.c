@@ -143,3 +143,9 @@ sys_receive_packet(void *packet, size_t *size)
 	 cprintf("");
 	return syscall(SYS_receive_packet, 1, (uint32_t) packet, (uint32_t) size, 0, 0, 0);
 }
+
+int
+sys_get_mac_addr(uint16_t * mac_addr)
+{
+	return syscall(SYS_get_mac_addr, 1, (uint32_t) mac_addr, 0, 0, 0, 0);
+}

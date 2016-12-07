@@ -21,6 +21,7 @@ enum {
 	SYS_change_priority,
 	SYS_transmit_packet, //16
 	SYS_receive_packet,  //17
+	SYS_get_mac_addr, //18
 	NSYSCALLS
 };
 
