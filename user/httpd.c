@@ -2,6 +2,7 @@
 #include <inc/fs.h>
 #include <lwip/sockets.h>
 #include <lwip/inet.h>
+#include <inc/mmu.h>
 
 #define PORT 80
 #define VERSION "0.1"
@@ -78,18 +79,34 @@ static int
 send_data(struct http_request *req, int fd)
 {
 	// LAB 6: Your code here.
-	char buf[1000]; 
+	
+	// Get file info
+	struct Stat statbuf; 
 	int r;
+	if ((r = fstat(fd, &statbuf)) < 0) { 
+		panic("hhtpd.c in send_data(): error getting file data.");
+	}
 	
-	// Get the file size
-	// Panic if reading more than maximum (what is the maximum we can read) 
-	// Catch any errors from read. 
+	// Ensure the buffer is the size of the file. 
+	char buf[statbuf.st_size]; 
+	
+	// Send the data from the file over the socket in small packets
+	// Reasonable sized packets ensure that we don't run into PGSIZE file limit issues. 
+	// Also, each network packet is lilmited to slightly above 1500 bytes
+	int tot; 
+	int load = 1500; 
+	for (tot = 0; tot < statbuf.st_size; ) {
 
-	r = 	read(fd, buf, 1000);
+		if ((r = 	read(fd, buf+tot, load)) < 0)
+			return -1; 
 	
 
-	if (write(req->sock, buf, r) != r)
-		return -1;
+		if (write(req->sock, buf+tot, r) != r)
+			return -1;
+		
+		tot += r; 
+		
+	}
 
 	return 0; 
 }
@@ -258,9 +275,9 @@ send_file(struct http_request *req)
 	file_size = statbuf.st_size; 
 	
 	// TODO: Debug
-	cprintf("fd: %d \n", fd);
-	cprintf("Size: %d \n", statbuf.st_size);
-	cprintf("isdir: %x \n", statbuf.st_isdir);
+	//cprintf("fd: %d \n", fd);
+	//cprintf("Size: %d \n", statbuf.st_size);
+	//cprintf("isdir: %x \n", statbuf.st_isdir);
 
 	
 
