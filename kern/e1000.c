@@ -280,7 +280,7 @@ static int init_transmit(void) {
 		
 		tx_desc_list[n] = tx_desc_new; 
 	}	
-	
+
 	return 0; 
 }
 

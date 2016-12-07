@@ -16,10 +16,11 @@ enum {
 	SYS_env_set_pgfault_upcall,
 	SYS_yield,
 	SYS_ipc_try_send,
-	SYS_ipc_recv,
+	SYS_ipc_recv, //13
 	SYS_time_msec,
 	SYS_change_priority,
-	SYS_transmit_packet, 
+	SYS_transmit_packet, //16
+	SYS_receive_packet,  //17
 	NSYSCALLS
 };
 

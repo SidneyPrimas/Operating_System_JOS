@@ -11,7 +11,7 @@ umain(int argc, char **argv)
 	int id, i;
 	
 	// Set the parent to high priority. 
-	int error = sys_change_priority(3);
+	int error = 0;// sys_change_priority(3);
 	if (error < 0) {
 		panic("Error \n");
 	}
@@ -21,7 +21,7 @@ umain(int argc, char **argv)
 		if ((id = fork()) == 0) {
 			// Child is executing. 
 			int priority = i%3; 
-			error = sys_change_priority(priority);
+			error =0;// sys_change_priority(priority);
 			if (error < 0) {
 				panic("Error \n");
 			}
