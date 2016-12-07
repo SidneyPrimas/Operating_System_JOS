@@ -45,9 +45,17 @@ input(envid_t ns_envid)
 		// Continually polls the network server, waiting to receive a packet. 
 		for (;;) {
 			r = sys_receive_packet(net_pg, &size);
-			if (r == -E_RX_BUFF_FULL) {
+			if (r >= 0) {
+				//Packet received. Send to client/user. 
+				// TODO: Debug
+				//cprintf("Packet received. \n");
+				break; 
+			}
+			else if (r == -E_RX_BUFF_FULL) {
 				// Receive buffer is currently full. 
-				cprintf("Receive Buffer Full in NIC. Re-try. \n");
+				// TODO: Debug
+				//cprintf("No data in NIC Buffer. Re-try. \n");
+				sys_yield(); 
 				continue; 
 			} else if (r < 0) {
 				panic("Error in net/input.c. Issue with sys_transmit_packet. (%e) \n", r);
@@ -67,15 +75,14 @@ input(envid_t ns_envid)
 		memcpy(pci_pg + sizeof(int), net_pg, PGSIZE-sizeof(int));
 		
 		// TODO: Debugging
-		union Nsipc *nsipc_buffer_p = (union Nsipc *) pci_pg; 
-		cprintf("Size: %d \n", nsipc_buffer_p->pkt.jp_len );
-		cprintf("Data: %x \n", nsipc_buffer_p->pkt.jp_data[0] );
+		//union Nsipc *nsipc_buffer_p = (union Nsipc *) pci_pg; 
+		//cprintf("Size: %d \n", nsipc_buffer_p->pkt.jp_len );
+		//cprintf("Data: %x \n", nsipc_buffer_p->pkt.jp_data[0] );
 		
 		/* Successfully Received packet from System Call */
 		// ipc_send puts sys_ipc_send into a while loop to continue to send data until it succeeds. 
 		// Blocks until succeeds or fails
 		ipc_send(ns_envid, NSREQ_INPUT, pci_pg, PTE_U | PTE_P); 
-		
 		
 		// By 'sending' the page, two environments hold va to the same physical page. 
 		// We need to unmap the va in this env to ensure there is no race conditions. 

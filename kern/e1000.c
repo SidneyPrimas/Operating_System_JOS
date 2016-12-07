@@ -146,7 +146,7 @@ int e1000_receive_packet(void * packet, size_t * size) {
 	assert(size != NULL);
 	
 	//TODO: Debug
-	cprintf("Run e1000_receive_packet \n");
+	//cprintf("Run e1000_receive_packet \n");
 	
 	// Use RDT (Receive Descriptor Tail) to determine which descriptor will have next receive packet. 
 	int reg_RDT = E1000_RDT/sizeof(*e1000_io);
@@ -157,14 +157,16 @@ int e1000_receive_packet(void * packet, size_t * size) {
 	struct  RX_Desc current_desc = rx_desc_list[desc_tail_next];
 	
 	//TODO: Debug
-	cprintf("Status: %x \n", current_desc.status);
-	int reg_RDH = E1000_RDH/sizeof(*e1000_io);
-	cprintf("Head: %d \n", e1000_io[reg_RDH]);
+	//cprintf("Status: %x \n", current_desc.status);
+	//int reg_RDH = E1000_RDH/sizeof(*e1000_io);
+	//cprintf("Head: %d \n", e1000_io[reg_RDH]);
+	//cprintf("Tail: %d \n", e1000_io[reg_RDT]);
 	
 	// If Descrptor Done bit OR End of Packet (EOP)  NOT set, then descriptor NOT ready to be used. 
 	// User must resend data. 
 	if (!(current_desc.status & E1000_RXD_STAT_DD) || !(current_desc.status & E1000_RXD_STAT_EOP)) {
-		warn("DD | EOP NOT set. Descriptor still needs to be processed by E1000. \n");
+		// Debug
+		//warn("DD | EOP NOT set. Descriptor still needs to be processed by E1000. \n");
 		return -E_RX_BUFF_FULL; 
 	}
 	
@@ -181,8 +183,8 @@ int e1000_receive_packet(void * packet, size_t * size) {
 	assert(current_desc.length <= max_receive_size); 
 	
 	// TODO: Debugging
-	cprintf("Address: %08x \n", current_desc.addr_lower); 
-	cprintf("Length: %d \n", current_desc.length); 	
+	//cprintf("Address: %08x \n", current_desc.addr_lower); 
+	//cprintf("Length: %d \n", current_desc.length); 	
 	
 	// Extract important data (and make available to caller)
 	*size = (size_t) current_desc.length;

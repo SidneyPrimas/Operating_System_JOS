@@ -1,4 +1,5 @@
 #include <inc/lib.h>
+#include <inc/fs.h>
 #include <lwip/sockets.h>
 #include <lwip/inet.h>
 
@@ -77,7 +78,20 @@ static int
 send_data(struct http_request *req, int fd)
 {
 	// LAB 6: Your code here.
-	panic("send_data not implemented");
+	char buf[1000]; 
+	int r;
+	
+	// Get the file size
+	// Panic if reading more than maximum (what is the maximum we can read) 
+	// Catch any errors from read. 
+
+	r = 	read(fd, buf, 1000);
+	
+
+	if (write(req->sock, buf, r) != r)
+		return -1;
+
+	return 0; 
 }
 
 static int
@@ -221,9 +235,34 @@ send_file(struct http_request *req)
 	// if the file does not exist, send a 404 error using send_error
 	// if the file is a directory, send a 404 error using send_error
 	// set file_size to the size of the file
-
+	
 	// LAB 6: Your code here.
-	panic("send_file not implemented");
+	// Open the file
+	if ((fd = open(req->url, FSREQ_READ)) < 0) {
+		cprintf("Warn in httpd.c in send_file(): error in opening file.");
+		return send_error(req, 404);
+	} 
+	
+	
+	// Get file info
+	struct Stat statbuf; 
+	if ((r = fstat(fd, &statbuf)) < 0) { 
+		panic("hhtpd.c in send_file(): error getting file data.");
+	}
+	
+	// Return 404 if directory
+	if (statbuf.st_isdir) {
+		return send_error(req, 404);
+	}
+	
+	file_size = statbuf.st_size; 
+	
+	// TODO: Debug
+	cprintf("fd: %d \n", fd);
+	cprintf("Size: %d \n", statbuf.st_size);
+	cprintf("isdir: %x \n", statbuf.st_isdir);
+
+	
 
 	if ((r = send_header(req, 200)) < 0)
 		goto end;

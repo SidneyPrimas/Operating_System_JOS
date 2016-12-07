@@ -1,1 +1,2 @@
 Question 1: If the transmit ring is full, I essentially return an error indicating that the buffer is full. This is propogated back all the way to output.c. In the output function, we then continue to retry (in an infinite loop) until we successfully transmited the packet. Then, we break out of the loop and conintue. 
+Question 2: Implemented a yield. Otherwise the same implementation as above. 
