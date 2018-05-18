@@ -1,0 +1,1 @@
+Note: Before calling and running grading scripts, move all scripts in grade_labs folder to root directory. 
